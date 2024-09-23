@@ -2,7 +2,10 @@
     .name = "cake",
     .version = "0.1.0",
     .minimum_zig_version = "0.13.0",
-    .dependencies = .{},
+    .dependencies = .{
+        .@"vulkan-zig" = .{ .path = "third_party/vulkan-zig" },
+        .@"zig-wayland" = .{ .path = "third_party/zig-wayland" },
+    },
     .paths = .{
         "build.zig",
         "build.zig.zon",

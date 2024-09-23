@@ -13,12 +13,28 @@ const Context = switch (build_options.VideoBackend) {
     else => @compileError("unsupported video platform: " ++ @tagName(build_options.VideoBackend)),
 };
 
-var context: ?Context = null;
+pub const Surface = Context.Surface;
+
+var context: Context = undefined;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
 };
 
-pub fn init(options: Options) Errors!void {
-    context = try Context.init(options.allocator);
+pub fn init(options: Options) !void {
+    try context.init(options.allocator);
+}
+
+/// create a surface
+pub fn createSurface(size: @Vector(2, u32)) !*Surface {
+    return try context.createSurface(size);
+}
+
+pub fn destroySurface(surface: *Surface) void {
+    surface.deinit();
+    context.allocator.destroy(surface);
+}
+
+pub fn tick() !void {
+    try context.tick();
 }

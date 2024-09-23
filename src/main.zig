@@ -3,11 +3,11 @@
 const std = @import("std");
 const cake = @import("cake");
 
-const log_cake = std.log.scoped(.cake);
+const Log = std.log.scoped(.cake);
 
 pub fn main() !void {
-    log_cake.info("welcome to the cake test application", .{});
-    defer log_cake.info("exiting...", .{});
+    Log.info("Welcome to the cake test application", .{});
+    defer Log.info("exiting...", .{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer std.debug.assert(gpa.deinit() == .ok);
@@ -17,4 +17,11 @@ pub fn main() !void {
     try cake.init(.{
         .allocator = alloc,
     });
+
+    const win = try cake.Window.init(@Vector(2, u32){ 1920, 1080 });
+    defer win.deinit();
+
+    while (!win.wantsClose()) {
+        try cake.tick();
+    }
 }

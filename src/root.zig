@@ -8,14 +8,15 @@ pub const Errors = error{
     InitFailed,
 };
 
+pub const Window = @import("window.zig");
+
 /// options for initializing cake!
 pub const Options = struct {
     /// the allocator! we're gunna abuse this bad boy
     allocator: std.mem.Allocator,
 };
 
-pub const InitErrors = Errors || cake_video.Errors || cake_render.Errors;
-pub fn init(options: Options) InitErrors!void {
+pub fn init(options: Options) !void {
     try cake_video.init(.{
         .allocator = options.allocator,
     });
@@ -23,4 +24,9 @@ pub fn init(options: Options) InitErrors!void {
     try cake_render.init(.{
         .allocator = options.allocator,
     });
+}
+
+pub fn tick() !void {
+    try cake_video.tick();
+    try cake_render.tick();
 }

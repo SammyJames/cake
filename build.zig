@@ -51,6 +51,14 @@ pub fn build(b: *std.Build) void {
     });
     cake_render.addOptions("build_options", render_options);
 
+    if (render_backend == .vulkan) {
+        const vkzig_dep = b.dependency("vulkan-zig", .{
+            .registry = @as([]const u8, b.pathFromRoot("vk.xml")),
+        });
+        const vkzig_bindings = vkzig_dep.module("vulkan-zig");
+        cake_render.addImport("vulkan", vkzig_bindings);
+    }
+
     const video_options = b.addOptions();
     video_options.addOption(VideoBackend, "VideoBackend", video_backend);
 
@@ -60,6 +68,34 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     cake_video.addOptions("build_options", video_options);
+
+    if (video_backend == .wayland) {
+        const zigwl_dep = b.dependency(
+            "zig-wayland",
+            .{
+                .protocols_system = @as(
+                    []const []const u8,
+                    &.{
+                        "stable/xdg-shell/xdg-shell.xml",
+                        "unstable/xdg-decoration/xdg-decoration-unstable-v1.xml",
+                    },
+                ),
+                .generate = @as(
+                    []const []const u8,
+                    &.{
+                        "wl_compositor:1",
+                        "wl_shm:1",
+                        "wl_seat:1",
+                        "wl_output:1",
+                        "xdg_wm_base:1",
+                        "zxdg_decoration_manager_v1:1",
+                    },
+                ),
+            },
+        );
+
+        cake_video.addImport("wayland", zigwl_dep.module("zig-wayland"));
+    }
 
     const cake = b.addModule("cake", .{
         .root_source_file = b.path("src/root.zig"),

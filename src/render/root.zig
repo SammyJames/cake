@@ -13,12 +13,14 @@ const Context = switch (build_options.RenderBackend) {
     else => @compileError("unsupported render platform: " ++ @tagName(build_options.RenderBackend)),
 };
 
-var context: ?Context = null;
+var context: Context = undefined;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
 };
 
 pub fn init(options: Options) Errors!void {
-    context = try Context.init(options.allocator);
+    try context.init(options.allocator);
 }
+
+pub fn tick() !void {}

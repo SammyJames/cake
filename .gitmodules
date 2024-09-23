@@ -1,0 +1,6 @@
+[submodule "third_party/vulkan-zig"]
+	path = third_party/vulkan-zig
+	url = git@github.com:Snektron/vulkan-zig.git
+[submodule "third_party/zig-wayland"]
+	path = third_party/zig-wayland
+	url = git@github.com:SammyJames/zig-wayland.git

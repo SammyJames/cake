@@ -6,9 +6,6 @@ const Self = @This();
 
 allocator: std.mem.Allocator,
 
-pub fn init(allocator: std.mem.Allocator) !Self {
-    var result: Self = undefined;
-    result.allocator = allocator;
-
-    return result;
+pub fn init(self: *Self, allocator: std.mem.Allocator) !void {
+    self.allocator = allocator;
 }
