@@ -8,12 +8,16 @@ pub const Errors = error{
 };
 
 const Context = switch (build_options.VideoBackend) {
-    .wayland => @import("wayland.zig"),
-    .win32 => @import("win32.zig"),
+    .wayland => @import("wayland/context.zig"),
+    .win32 => @import("win32/context.zig"),
     else => @compileError("unsupported video platform: " ++ @tagName(build_options.VideoBackend)),
 };
 
-pub const Surface = Context.Surface;
+pub const Surface = switch (build_options.VideoBackend) {
+    .wayland => @import("wayland/surface.zig"),
+    .win32 => @import("win32/surface.zig"),
+    else => @compileError("unsupported video platform: " ++ @tagName(build_options.VideoBackend)),
+};
 
 var context: Context = undefined;
 
@@ -27,7 +31,7 @@ pub fn init(options: Options) !void {
 
 /// create a surface
 pub fn createSurface(size: @Vector(2, u32)) !*Surface {
-    return try context.createSurface(size);
+    return try Surface.create(&context, size);
 }
 
 pub fn destroySurface(surface: *Surface) void {
