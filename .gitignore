@@ -1,0 +1,4 @@
+.zig-cache/
+zig-out/
+cake.sublime-project
+cake.sublime-workspace
