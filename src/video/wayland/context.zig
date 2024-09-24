@@ -55,6 +55,18 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+pub fn deinit(self: *Self) void {
+    self.registry.destroy();
+    self.compositor.destroy();
+    self.shm.destroy();
+    self.output.destroy();
+    self.xdg_wm_base.destroy();
+    self.zxdg_decoration_man.destroy();
+    self.seat.destroy();
+    self.display.disconnect();
+}
+
+///////////////////////////////////////////////////////////////////////////////
 pub fn renderData(self: *Self) *anyopaque {
     return self.display;
 }
@@ -62,9 +74,51 @@ pub fn renderData(self: *Self) *anyopaque {
 ///////////////////////////////////////////////////////////////////////////////
 /// tick the wayland video context
 pub fn tick(self: *Self) !void {
-    if (self.display.dispatchPending() != .SUCCESS) {
-        return Errors.DispatchFailed;
+    var fds = [_]std.posix.pollfd{
+        .{ .fd = self.display.getFd(), .events = std.posix.POLL.IN, .revents = 0 },
+        .{ .fd = -1, .events = std.posix.POLL.IN, .revents = 0 },
+    };
+
+    var event = false;
+    while (!event) {
+        while (!self.display.prepareRead()) {
+            if (self.display.dispatchPending() == .SUCCESS) {
+                return;
+            }
+        }
+
+        //if (!self.flushDisplay()) {
+        //    self.display.cancelRead();
+        //    // todo(sjames) - close windows
+        //}
+
+        if (try std.posix.poll(&fds, 1) == 0) {
+            self.display.cancelRead();
+            return;
+        }
+
+        if ((fds[0].revents & std.posix.POLL.IN) == std.posix.POLL.IN) {
+            _ = self.display.readEvents();
+            if (self.display.dispatchPending() == .SUCCESS) {
+                event = true;
+            }
+        } else {
+            self.display.cancelRead();
+        }
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+fn flushDisplay(self: *Self) bool {
+    while (self.display.flush() != .SUCCESS) {
+        var fds = [_]std.posix.pollfd{
+            .{ .fd = self.display.getFd(), .events = std.posix.POLL.IN, .revents = 0 },
+        };
+
+        while (try std.posix.poll(&fds, -1) == -1) {}
+    }
+
+    return true;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -146,7 +200,7 @@ fn registryListener(
                     1,
                 ) catch return;
             } else {
-                Log.debug("ignoring {s}", .{global.interface});
+                //Log.debug("ignoring {s}", .{global.interface});
             }
         },
         .global_remove => {},

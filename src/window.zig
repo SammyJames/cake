@@ -1,5 +1,6 @@
 //! Cake
 
+const std = @import("std");
 const cake_video = @import("cake.video");
 const cake_render = @import("cake.render");
 
@@ -10,10 +11,19 @@ render_surface: *cake_render.Surface,
 render_swapchain: *cake_render.Swapchain,
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// create a window
+/// @param title the title of the window
+/// @param size the size of the window
+/// @return a new window
 pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
-    const video_surface = try cake_video.createSurface(title, size);
-    const render_surface = try cake_render.createSurface(video_surface.surface);
+    const video_surface = try cake_video.createSurface(
+        title,
+        size,
+    );
+    const render_surface = try cake_render.createSurface(
+        video_surface.surface,
+        size,
+    );
     return .{
         .video_surface = video_surface,
         .render_surface = render_surface,
@@ -22,7 +32,7 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// destroy a window
 pub fn deinit(self: Self) void {
     cake_render.destroySwapchain(self.render_swapchain);
     cake_render.destroySurface(self.render_surface);
@@ -30,13 +40,14 @@ pub fn deinit(self: Self) void {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// determine if the window should close
+/// @return true if the window wants to close
 pub fn wantsClose(self: Self) bool {
     return self.video_surface.close_requested;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// tick the window
 pub fn tick(self: Self) !void {
-    try cake_render.present(self.render_swapchain);
+    _ = self; // autofix
 }

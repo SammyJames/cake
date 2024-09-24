@@ -20,6 +20,7 @@ pub const Surface = switch (build_options.VideoBackend) {
 };
 
 var context: Context = undefined;
+var surfaces: std.ArrayList(*Surface) = undefined;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
@@ -30,7 +31,14 @@ pub const Options = struct {
 /// initialize the video module
 /// @param options options to use for this module
 pub fn init(options: Options) !void {
+    surfaces = std.ArrayList(*Surface).init(options.allocator);
     try context.init(options.allocator, options.app_id);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+pub fn deinit() void {
+    surfaces.deinit();
+    context.deinit();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -48,6 +56,8 @@ pub fn createSurface(title: [:0]const u8, size: @Vector(2, u32)) !*Surface {
     errdefer context.allocator.destroy(surf);
     try surf.init(&context, title, size);
 
+    try surfaces.append(surf);
+
     return surf;
 }
 
@@ -55,6 +65,11 @@ pub fn createSurface(title: [:0]const u8, size: @Vector(2, u32)) !*Surface {
 /// destroy a surface
 /// @param surface the surface to destroy
 pub fn destroySurface(surface: *Surface) void {
+    const index = std.mem.indexOfScalar(*Surface, surfaces.items, surface);
+    if (index) |i| {
+        _ = surfaces.swapRemove(i);
+    }
+
     surface.deinit();
     context.allocator.destroy(surface);
 }

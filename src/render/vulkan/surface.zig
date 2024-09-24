@@ -6,6 +6,7 @@ const types = @import("types.zig");
 const Context = @import("context.zig");
 
 const Self = @This();
+const Log = std.log.scoped(.@"cake.render.vulkan.surface");
 
 const Queue = struct {
     handle: vk.Queue,
@@ -20,6 +21,7 @@ const Queue = struct {
 };
 
 handle: vk.SurfaceKHR,
+size: @Vector(2, u32),
 graphics_queue: Queue,
 present_queue: Queue,
 
@@ -28,7 +30,7 @@ present_queue: Queue,
 /// @param ctx
 /// @param surface
 /// @return a new surface
-pub fn init(ctx: *Context, surface: *anyopaque) !Self {
+pub fn init(ctx: *Context, surface: *anyopaque, size: @Vector(2, u32)) !Self {
     const handle = try ctx.instance.createWaylandSurfaceKHR(
         &.{
             .display = @ptrCast(@alignCast(ctx.udata)),
@@ -37,8 +39,11 @@ pub fn init(ctx: *Context, surface: *anyopaque) !Self {
         null,
     );
 
+    Log.debug("surface created: {}", .{handle});
+
     return .{
         .handle = handle,
+        .size = size,
         .graphics_queue = Queue.init(ctx.device, 0),
         .present_queue = Queue.init(ctx.device, 0),
     };

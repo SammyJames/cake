@@ -5,6 +5,7 @@ const vk = @import("vulkan");
 const types = @import("types.zig");
 
 const Self = @This();
+const Log = std.log.scoped(.@"cake.render.vulkan");
 
 const REQUIRED_INSTANCE_EXTENSIONS = [_][*:0]const u8{
     vk.extensions.khr_surface.name,
@@ -97,6 +98,11 @@ pub fn init(
     errdefer self.instance.destroyInstance(null);
 
     const candidate = try self.pickPhysicalDevice(udata);
+    Log.debug(
+        "device candidate {s}",
+        .{candidate.props.device_name},
+    );
+
     self.pdev = candidate.pdev;
     self.props = candidate.props;
     self.mem_props = self.instance.getPhysicalDeviceMemoryProperties(self.pdev);
@@ -241,4 +247,13 @@ fn pickPhysicalDevice(
     }
 
     return error.NoSuitablePhysicalDevice;
+}
+
+pub fn begin(self: *Self) !void {
+    _ = self; // autofix
+
+}
+
+pub fn end(self: *Self) void {
+    _ = self; // autofix
 }

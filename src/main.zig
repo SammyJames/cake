@@ -18,12 +18,17 @@ pub fn main() !void {
         .allocator = alloc,
         .app_id = "bakery",
     });
+    defer cake.deinit();
 
-    const win = try cake.Window.init("Bakery", @Vector(2, u32){ 1920, 1080 });
-    defer win.deinit();
+    const win1 = try cake.Window.init("Bakery", .{ 1920, 1080 });
+    defer win1.deinit();
 
-    while (!win.wantsClose()) {
-        try win.tick();
+    const win2 = try cake.Window.init("Bakery2", .{ 1024, 1024 });
+    defer win2.deinit();
+
+    while (!win1.wantsClose()) {
+        try win1.tick();
+        try win2.tick();
         try cake.tick();
     }
 }

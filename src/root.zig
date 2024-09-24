@@ -34,6 +34,11 @@ pub fn init(options: Options) !void {
     });
 }
 
+pub fn deinit() void {
+    cake_render.deinit();
+    cake_video.deinit();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 /// tick cake
 pub fn tick() !void {
