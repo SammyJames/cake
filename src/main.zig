@@ -16,12 +16,14 @@ pub fn main() !void {
 
     try cake.init(.{
         .allocator = alloc,
+        .app_id = "bakery",
     });
 
-    const win = try cake.Window.init(@Vector(2, u32){ 1920, 1080 });
+    const win = try cake.Window.init("Bakery", @Vector(2, u32){ 1920, 1080 });
     defer win.deinit();
 
     while (!win.wantsClose()) {
+        try win.tick();
         try cake.tick();
     }
 }

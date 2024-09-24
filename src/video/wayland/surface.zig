@@ -27,40 +27,65 @@ state: enum {
     configured,
 },
 
-pub fn create(ctx: *const Context, size: @Vector(2, u32)) !*Self {
-    var result = try ctx.allocator.create(Self);
-    errdefer ctx.allocator.destroy(result);
+///////////////////////////////////////////////////////////////////////////////
+/// initialize a surface, expects the memory for this surface to have been
+/// allocated prior to calling init
+/// @param ctx the wayland video context
+/// @param title the title of the surface
+/// @param size the dimensions of the surface
+pub fn init(
+    self: *Self,
+    ctx: *const Context,
+    title: [:0]const u8,
+    size: @Vector(2, u32),
+) !void {
+    self.size = size;
+    self.close_requested = false;
+    self.surface = try ctx.compositor.createSurface();
+    self.region = try ctx.compositor.createRegion();
 
-    result.size = size;
-    result.close_requested = false;
-    result.surface = try ctx.compositor.createSurface();
-    result.region = try ctx.compositor.createRegion();
+    self.xdg_surface = try ctx.xdg_wm_base.getXdgSurface(self.surface);
+    self.top_level = try self.xdg_surface.getToplevel();
 
-    result.xdg_surface = try ctx.xdg_wm_base.getXdgSurface(result.surface);
-    result.top_level = try result.xdg_surface.getToplevel();
+    self.xdg_surface.setWindowGeometry(
+        0,
+        0,
+        @intCast(size[0]),
+        @intCast(size[1]),
+    );
 
-    result.xdg_surface.setWindowGeometry(0, 0, @intCast(size[0]), @intCast(size[1]));
+    self.xdg_surface.setListener(
+        *Self,
+        Self.xdgSurfaceListener,
+        self,
+    );
+    self.top_level.setListener(
+        *Self,
+        Self.topLevelListener,
+        self,
+    );
 
-    result.xdg_surface.setListener(*Self, Self.xdgSurfaceListener, result);
-    result.top_level.setListener(*Self, Self.topLevelListener, result);
+    self.setTitle(title);
+    self.setAppId(ctx.app_id);
 
-    result.surface.commit();
+    self.surface.commit();
 
-    result.state = .waiting_for_configuration;
-    while (ctx.display.dispatch() == .SUCCESS and result.state != .configured) {}
+    self.state = .waiting_for_configuration;
+    while (ctx.display.dispatch() == .SUCCESS and self.state != .configured) {}
 
-    result.decoration = try ctx.zxdg_decoration_man.getToplevelDecoration(result.top_level);
-    result.decoration.setMode(.server_side);
+    self.decoration = try ctx.zxdg_decoration_man.getToplevelDecoration(
+        self.top_level,
+    );
+    self.decoration.setMode(.server_side);
 
-    result.surface.commit();
+    self.surface.commit();
 
     if (ctx.display.roundtrip() != .SUCCESS) {
         return Errors.RoundtripFailed;
     }
-
-    return result;
 }
 
+///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
     self.surface.destroy();
     self.region.destroy();
@@ -69,15 +94,45 @@ pub fn deinit(self: *Self) void {
     self.decoration.destroy();
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// set the title
+/// @param title the title
+pub fn setTitle(self: *Self, title: [:0]const u8) void {
+    self.top_level.setTitle(title.ptr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// set the app id
+/// @param app_id the application identifier
+fn setAppId(self: *Self, app_id: [:0]const u8) void {
+    self.top_level.setAppId(app_id.ptr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 fn updateOpaqueArea(self: *Self) void {
-    self.region.add(0, 0, @intCast(self.size[0]), @intCast(self.size[1]));
+    self.region.add(
+        0,
+        0,
+        @intCast(self.size[0]),
+        @intCast(self.size[1]),
+    );
     self.surface.setOpaqueRegion(self.region);
-    self.region.subtract(0, 0, @intCast(self.size[0]), @intCast(self.size[1]));
+    self.region.subtract(
+        0,
+        0,
+        @intCast(self.size[0]),
+        @intCast(self.size[1]),
+    );
 
     // todo update swapchain
 }
 
-fn xdgSurfaceListener(surface: *xdg.Surface, event: xdg.Surface.Event, self: *Self) void {
+///////////////////////////////////////////////////////////////////////////////
+fn xdgSurfaceListener(
+    surface: *xdg.Surface,
+    event: xdg.Surface.Event,
+    self: *Self,
+) void {
     switch (event) {
         .configure => |c| {
             surface.ackConfigure(c.serial);
@@ -90,10 +145,18 @@ fn xdgSurfaceListener(surface: *xdg.Surface, event: xdg.Surface.Event, self: *Se
     }
 }
 
-fn topLevelListener(_: *xdg.Toplevel, event: xdg.Toplevel.Event, self: *Self) void {
+///////////////////////////////////////////////////////////////////////////////
+fn topLevelListener(
+    _: *xdg.Toplevel,
+    event: xdg.Toplevel.Event,
+    self: *Self,
+) void {
     switch (event) {
         .configure => |c| {
-            self.size = @Vector(2, u32){ @intCast(c.width), @intCast(c.height) };
+            self.size = @Vector(2, u32){
+                @intCast(c.width),
+                @intCast(c.height),
+            };
             self.updateOpaqueArea();
         },
         .close => {
