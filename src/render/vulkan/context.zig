@@ -3,6 +3,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const types = @import("types.zig");
+const interface = @import("../interface.zig");
 
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan");
@@ -35,7 +36,7 @@ var load_vulkan = std.once(loadVulkan);
 
 allocator: std.mem.Allocator,
 app_id: [:0]const u8,
-udata: *anyopaque,
+video: interface.Video,
 base_dispatch: BaseDispatch,
 instance: types.Instance,
 device: types.Device,
@@ -43,6 +44,7 @@ device: types.Device,
 pdev: vk.PhysicalDevice,
 props: vk.PhysicalDeviceProperties,
 mem_props: vk.PhysicalDeviceMemoryProperties,
+queues: QueueAllocation,
 
 ///////////////////////////////////////////////////////////////////////////////
 /// initialize the vulkan context
@@ -53,11 +55,11 @@ pub fn init(
     self: *Self,
     allocator: std.mem.Allocator,
     app_id: [:0]const u8,
-    udata: *anyopaque,
+    video: interface.Video,
 ) !void {
     self.allocator = allocator;
     self.app_id = app_id;
-    self.udata = udata;
+    self.video = video;
 
     const Loader = struct {
         fn load(_: vk.Instance, name: [*:0]const u8) vk.PfnVoidFunction {
@@ -97,7 +99,7 @@ pub fn init(
     self.instance = types.Instance.init(instance, vki);
     errdefer self.instance.destroyInstance(null);
 
-    const candidate = try self.pickPhysicalDevice(udata);
+    const candidate = try self.pickPhysicalDevice(video);
     Log.debug(
         "device candidate {s}",
         .{candidate.props.device_name},
@@ -105,6 +107,7 @@ pub fn init(
 
     self.pdev = candidate.pdev;
     self.props = candidate.props;
+    self.queues = candidate.queues;
     self.mem_props = self.instance.getPhysicalDeviceMemoryProperties(self.pdev);
 
     const dev = try self.initCandidate(candidate);
@@ -180,7 +183,7 @@ fn loadVulkan() void {
 /// @return a device candidate
 fn pickPhysicalDevice(
     self: *Self,
-    udata: *anyopaque,
+    video: interface.Video,
 ) !DeviceCandidate {
     const pdevs = try self.instance.enumeratePhysicalDevicesAlloc(self.allocator);
     defer self.allocator.free(pdevs);
@@ -227,7 +230,7 @@ fn pickPhysicalDevice(
                 if (present_family == null and self.instance.getPhysicalDeviceWaylandPresentationSupportKHR(
                     pdev,
                     family,
-                    @ptrCast(@alignCast(udata)),
+                    @ptrCast(@alignCast(video.getOsDisplay())),
                 ) == vk.TRUE) {
                     present_family = family;
                 }

@@ -23,10 +23,10 @@ pub fn main() !void {
     const win1 = try cake.Window.init("Bakery", .{ 1920, 1080 });
     defer win1.deinit();
 
-    const win2 = try cake.Window.init("Bakery2", .{ 1024, 1024 });
+    const win2 = try cake.Window.init("Bakery", .{ 1024, 768 });
     defer win2.deinit();
 
-    while (!win1.wantsClose()) {
+    while (!win1.wantsClose() and !win2.wantsClose()) {
         try win1.tick();
         try win2.tick();
         try cake.tick();

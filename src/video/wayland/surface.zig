@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const wayland = @import("wayland");
+const interface = @import("../interface.zig");
 const Context = @import("context.zig");
 
 const wl = wayland.client.wl;
@@ -9,6 +10,7 @@ const xdg = wayland.client.xdg;
 const zxdg = wayland.client.zxdg;
 
 const Self = @This();
+const Log = std.log.scoped(.@"cake.video.wayland.surface");
 const Errors = error{
     RoundtripFailed,
 };
@@ -21,6 +23,7 @@ decoration: *zxdg.ToplevelDecorationV1,
 
 size: @Vector(2, u32),
 close_requested: bool,
+swapchain: ?interface.Swapchain,
 
 state: enum {
     waiting_for_configuration,
@@ -41,6 +44,7 @@ pub fn init(
 ) !void {
     self.size = size;
     self.close_requested = false;
+    self.swapchain = null;
     self.surface = try ctx.compositor.createSurface();
     self.region = try ctx.compositor.createRegion();
 
@@ -153,10 +157,22 @@ fn topLevelListener(
 ) void {
     switch (event) {
         .configure => |c| {
+            if (c.width == 0 or c.height == 0) {
+                return;
+            }
+
             self.size = @Vector(2, u32){
                 @intCast(c.width),
                 @intCast(c.height),
             };
+
+            Log.debug("{p} configure {}", .{ self.surface, self.size });
+            if (self.swapchain) |*sc| {
+                sc.onResize(self.size) catch |err| {
+                    Log.err("failed to resize swapchain: {s}", .{@errorName(err)});
+                };
+            }
+
             self.updateOpaqueArea();
         },
         .close => {

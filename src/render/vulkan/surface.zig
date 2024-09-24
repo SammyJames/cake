@@ -3,6 +3,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const types = @import("types.zig");
+const interface = @import("../interface.zig");
 const Context = @import("context.zig");
 
 const Self = @This();
@@ -21,7 +22,7 @@ const Queue = struct {
 };
 
 handle: vk.SurfaceKHR,
-size: @Vector(2, u32),
+video_surface: interface.Surface,
 graphics_queue: Queue,
 present_queue: Queue,
 
@@ -30,11 +31,11 @@ present_queue: Queue,
 /// @param ctx
 /// @param surface
 /// @return a new surface
-pub fn init(ctx: *Context, surface: *anyopaque, size: @Vector(2, u32)) !Self {
+pub fn init(ctx: *Context, surface: interface.Surface) !Self {
     const handle = try ctx.instance.createWaylandSurfaceKHR(
         &.{
-            .display = @ptrCast(@alignCast(ctx.udata)),
-            .surface = @ptrCast(@alignCast(surface)),
+            .display = @ptrCast(@alignCast(ctx.video.getOsDisplay())),
+            .surface = @ptrCast(@alignCast(surface.getOsSurface())),
         },
         null,
     );
@@ -43,9 +44,9 @@ pub fn init(ctx: *Context, surface: *anyopaque, size: @Vector(2, u32)) !Self {
 
     return .{
         .handle = handle,
-        .size = size,
-        .graphics_queue = Queue.init(ctx.device, 0),
-        .present_queue = Queue.init(ctx.device, 0),
+        .video_surface = surface,
+        .graphics_queue = Queue.init(ctx.device, ctx.queues.graphics_family),
+        .present_queue = Queue.init(ctx.device, ctx.queues.present_family),
     };
 }
 

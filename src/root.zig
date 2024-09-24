@@ -22,6 +22,12 @@ pub const Options = struct {
 /// initialize cake
 /// @param options the options touse for initialization
 pub fn init(options: Options) !void {
+    const Anon = struct {
+        fn getOsDisplay(ctx: *anyopaque) *anyopaque {
+            return ctx;
+        }
+    };
+
     try cake_video.init(.{
         .allocator = options.allocator,
         .app_id = options.app_id,
@@ -30,7 +36,12 @@ pub fn init(options: Options) !void {
     try cake_render.init(.{
         .allocator = options.allocator,
         .app_id = options.app_id,
-        .udata = cake_video.renderData(),
+        .video = cake_render.VideoInterface{
+            .ptr = cake_video.renderData(),
+            .vtable = .{
+                .get_os_display = Anon.getOsDisplay,
+            },
+        },
     });
 }
 

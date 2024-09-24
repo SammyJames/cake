@@ -6,6 +6,9 @@ const cake_render = @import("cake.render");
 
 const Self = @This();
 
+const SurfaceInterface = cake_render.SurfaceInterface;
+const SwapchainInterface = cake_video.SwapchainInterface;
+
 video_surface: *cake_video.Surface,
 render_surface: *cake_render.Surface,
 render_swapchain: *cake_render.Swapchain,
@@ -20,14 +23,53 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
         title,
         size,
     );
+
+    const Anon = struct {
+        fn getOsSurface(ctx: *anyopaque) *anyopaque {
+            const surf: *cake_video.Surface = @ptrCast(@alignCast(ctx));
+            return surf.surface;
+        }
+
+        fn getSize(ctx: *anyopaque) @Vector(2, u32) {
+            const surf: *cake_video.Surface = @ptrCast(@alignCast(ctx));
+            return surf.size;
+        }
+
+        fn onResize(ctx: *anyopaque, sz: @Vector(2, u32)) !void {
+            _ = sz; // autofix
+            const swpchain: *cake_render.Swapchain = @ptrCast(@alignCast(ctx));
+            try cake_render.recreateSwapchain(
+                swpchain,
+            );
+        }
+    };
+
     const render_surface = try cake_render.createSurface(
-        video_surface.surface,
-        size,
+        SurfaceInterface{
+            .ptr = video_surface,
+            .vtable = .{
+                .get_os_surface = Anon.getOsSurface,
+                .get_size = Anon.getSize,
+            },
+        },
     );
+
+    const render_swapchain = try cake_render.createSwapchain(
+        render_surface,
+    );
+
+    const swap_interface = SwapchainInterface{
+        .ptr = render_swapchain,
+        .vtable = .{
+            .on_resize = Anon.onResize,
+        },
+    };
+    video_surface.swapchain = swap_interface;
+
     return .{
         .video_surface = video_surface,
         .render_surface = render_surface,
-        .render_swapchain = try cake_render.createSwapchain(render_surface),
+        .render_swapchain = render_swapchain,
     };
 }
 

@@ -10,6 +10,7 @@ const Log = std.log.scoped(.@"cake.render.vulkan.swapchain");
 const Errors = error{
     QueuePresentFailed,
     ImageAcquireFailed,
+    FenceWaitFailed,
 };
 
 pub const PresentState = enum {
@@ -59,12 +60,22 @@ pub fn initRecycle(
     );
 
     const extents: vk.Extent2D = find_extents: {
+        const size = surface.video_surface.getSize();
+
         if (caps.current_extent.width != 0xFFFF_FFFF) {
             break :find_extents caps.current_extent;
         } else {
             break :find_extents .{
-                .width = std.math.clamp(surface.size[0], caps.min_image_extent.width, caps.max_image_extent.width),
-                .height = std.math.clamp(surface.size[1], caps.min_image_extent.height, caps.max_image_extent.height),
+                .width = std.math.clamp(
+                    size[0],
+                    caps.min_image_extent.width,
+                    caps.max_image_extent.width,
+                ),
+                .height = std.math.clamp(
+                    size[1],
+                    caps.min_image_extent.height,
+                    caps.max_image_extent.height,
+                ),
             };
         }
     };
@@ -204,8 +215,8 @@ pub fn initRecycle(
 
 ///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self, ctx: *Context) void {
-    _ = self; // autofix
-    _ = ctx; // autofix
+    self.deinitExceptSwapchain(ctx);
+    ctx.device.destroySwapchainKHR(self.handle, null);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -214,16 +225,22 @@ fn deinitExceptSwapchain(self: *Self, ctx: *Context) void {
         si.deinit(ctx);
     }
     ctx.allocator.free(self.swap_images);
-    ctx.device.destroySemaphore(self.next_image_acquired, null);
+    ctx.device.destroySemaphore(self.next_image, null);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-pub fn recreate(self: *Self, ctx: *Context, new_extent: @Vector(2, u32)) !void {
-    _ = new_extent; // autofix
+pub fn recreate(
+    self: *Self,
+    ctx: *Context,
+) !void {
     const old_handle = self.handle;
     const old_surf = self.surface;
     self.deinitExceptSwapchain(ctx);
-    self.* = try initRecycle(ctx, old_surf, old_handle);
+    self.* = try initRecycle(
+        ctx,
+        old_surf,
+        old_handle,
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -251,7 +268,7 @@ pub fn present(
     self: *Self,
     ctx: *Context,
 ) !PresentState {
-    Log.debug("present {}", .{self.surface.handle});
+    //Log.debug("present {}", .{self.surface.handle});
 
     const current = self.currentSwapImage();
     try current.waitForFence(ctx);
@@ -274,7 +291,7 @@ pub fn present(
                 .p_signal_semaphores = @ptrCast(&current.render_finished),
             },
         },
-        .null_handle,
+        current.frame_fence,
     );
 
     if (try ctx.device.queuePresentKHR(
@@ -391,12 +408,14 @@ const SwapImage = struct {
 
     ///////////////////////////////////////////////////////////////////////////
     fn waitForFence(self: SwapImage, ctx: *const Context) !void {
-        _ = try ctx.device.waitForFences(
+        if (try ctx.device.waitForFences(
             1,
             @ptrCast(&self.frame_fence),
             vk.TRUE,
             std.math.maxInt(u64),
-        );
+        ) != .success) {
+            return Errors.FenceWaitFailed;
+        }
     }
 };
 

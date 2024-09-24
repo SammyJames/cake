@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const build_options = @import("build_options");
+const interface = @import("interface.zig");
 
 pub const Errors = error{
     VideoInitializationFailed,
@@ -18,6 +19,8 @@ pub const Surface = switch (build_options.VideoBackend) {
     .win32 => @import("win32/surface.zig"),
     else => @compileError("unsupported video platform: " ++ @tagName(build_options.VideoBackend)),
 };
+
+pub const SwapchainInterface = interface.Swapchain;
 
 var context: Context = undefined;
 var surfaces: std.ArrayList(*Surface) = undefined;

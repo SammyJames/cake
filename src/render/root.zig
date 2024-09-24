@@ -2,6 +2,7 @@
 
 const std = @import("std");
 const build_options = @import("build_options");
+const interface = @import("interface.zig");
 
 pub const Errors = error{
     RenderInitializationFailed,
@@ -31,6 +32,9 @@ pub const Surface = switch (build_options.RenderBackend) {
     ),
 };
 
+pub const VideoInterface = interface.Video;
+pub const SurfaceInterface = interface.Surface;
+
 var context: Context = undefined;
 var swapchains: std.ArrayList(*Swapchain) = undefined;
 var surfaces: std.ArrayList(*Surface) = undefined;
@@ -38,7 +42,7 @@ var surfaces: std.ArrayList(*Surface) = undefined;
 pub const Options = struct {
     allocator: std.mem.Allocator,
     app_id: [:0]const u8,
-    udata: *anyopaque,
+    video: VideoInterface,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,7 +54,7 @@ pub fn init(options: Options) !void {
     try context.init(
         options.allocator,
         options.app_id,
-        options.udata,
+        options.video,
     );
 }
 
@@ -68,7 +72,11 @@ pub fn deinit() void {
 pub fn tick() !void {
     for (swapchains.items) |sc| {
         const state = try sc.present(&context);
-        _ = state; // autofix
+
+        switch (state) {
+            .optimal => {},
+            .suboptimal => {},
+        }
     }
 }
 
@@ -76,10 +84,13 @@ pub fn tick() !void {
 /// create a surface
 /// @param surface
 /// @return a new surface
-pub fn createSurface(surface: *anyopaque, size: @Vector(2, u32)) !*Surface {
+pub fn createSurface(surface: SurfaceInterface) !*Surface {
     const surf = try context.allocator.create(Surface);
     errdefer context.allocator.destroy(surf);
-    surf.* = try Surface.init(&context, surface, size);
+    surf.* = try Surface.init(&context, surface);
+
+    try surfaces.append(surf);
+
     return surf;
 }
 
@@ -87,6 +98,15 @@ pub fn createSurface(surface: *anyopaque, size: @Vector(2, u32)) !*Surface {
 /// destroy a surface
 /// @param surface
 pub fn destroySurface(surface: *Surface) void {
+    const index = std.mem.indexOfScalar(
+        *Surface,
+        surfaces.items,
+        surface,
+    );
+    if (index) |i| {
+        _ = surfaces.swapRemove(i);
+    }
+
     surface.deinit(&context);
     context.allocator.destroy(surface);
 }
@@ -106,10 +126,19 @@ pub fn createSwapchain(surface: *Surface) !*Swapchain {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+pub fn recreateSwapchain(swapchain: *Swapchain) !void {
+    try swapchain.recreate(&context);
+}
+
+///////////////////////////////////////////////////////////////////////////////
 /// destroy a swapchain
 /// @param swapchain
 pub fn destroySwapchain(swapchain: *Swapchain) void {
-    const index = std.mem.indexOfScalar(*Swapchain, swapchains.items, swapchain);
+    const index = std.mem.indexOfScalar(
+        *Swapchain,
+        swapchains.items,
+        swapchain,
+    );
     if (index) |i| {
         _ = swapchains.swapRemove(i);
     }
