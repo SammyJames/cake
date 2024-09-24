@@ -54,7 +54,10 @@ pub fn renderData() *anyopaque {
 /// @param title the title
 /// @param size the dimensions of the surface
 /// @return a pointer to a newly created surface
-pub fn createSurface(title: [:0]const u8, size: @Vector(2, u32)) !*Surface {
+pub fn createSurface(
+    title: [:0]const u8,
+    size: @Vector(2, u32),
+) !*Surface {
     const surf = try context.allocator.create(Surface);
     errdefer context.allocator.destroy(surf);
     try surf.init(&context, title, size);
@@ -68,7 +71,11 @@ pub fn createSurface(title: [:0]const u8, size: @Vector(2, u32)) !*Surface {
 /// destroy a surface
 /// @param surface the surface to destroy
 pub fn destroySurface(surface: *Surface) void {
-    const index = std.mem.indexOfScalar(*Surface, surfaces.items, surface);
+    const index = std.mem.indexOfScalar(
+        *Surface,
+        surfaces.items,
+        surface,
+    );
     if (index) |i| {
         _ = surfaces.swapRemove(i);
     }

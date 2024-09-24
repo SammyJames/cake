@@ -175,6 +175,8 @@ fn topLevelListener(
             self.updateOpaqueArea() catch |err| {
                 Log.err("failed to update opaque area {s}", .{@errorName(err)});
             };
+
+            self.surface.commit();
         },
         .close => {
             self.close_requested = true;

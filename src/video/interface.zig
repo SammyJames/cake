@@ -7,6 +7,10 @@ pub const Swapchain = struct {
     },
 
     pub fn onResize(self: @This(), size: @Vector(2, u32)) !void {
-        try @call(.auto, self.vtable.on_resize, .{ self.ptr, size });
+        try @call(
+            .auto,
+            self.vtable.on_resize,
+            .{ self.ptr, size },
+        );
     }
 };
