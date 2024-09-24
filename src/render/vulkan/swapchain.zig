@@ -18,7 +18,7 @@ pub const PresentState = enum {
     suboptimal,
 };
 
-allocator: std.mem.Allocator,
+ctx: *Context,
 
 surface: *Surface,
 surface_format: vk.SurfaceFormatKHR,
@@ -201,7 +201,7 @@ pub fn initRecycle(
     );
 
     return .{
-        .allocator = ctx.allocator,
+        .ctx = ctx,
         .surface = surface,
         .surface_format = surface_format,
         .present_mode = present_mode,
@@ -214,39 +214,44 @@ pub fn initRecycle(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-pub fn deinit(self: *Self, ctx: *Context) void {
-    self.deinitExceptSwapchain(ctx);
-    ctx.device.destroySwapchainKHR(self.handle, null);
+pub fn deinit(self: *Self) void {
+    self.deinitExceptSwapchain();
+    self.ctx.device.destroySwapchainKHR(
+        self.handle,
+        null,
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-fn deinitExceptSwapchain(self: *Self, ctx: *Context) void {
+fn deinitExceptSwapchain(self: *Self) void {
     for (self.swap_images) |si| {
-        si.deinit(ctx);
+        si.deinit(self.ctx);
     }
-    ctx.allocator.free(self.swap_images);
-    ctx.device.destroySemaphore(self.next_image, null);
+    self.ctx.allocator.free(self.swap_images);
+    self.ctx.device.destroySemaphore(
+        self.next_image,
+        null,
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-pub fn recreate(
-    self: *Self,
-    ctx: *Context,
-) !void {
+pub fn recreate(self: *Self, size: @Vector(2, u32)) !void {
+    _ = size; // autofix
+    const old_ctx = self.ctx;
     const old_handle = self.handle;
     const old_surf = self.surface;
-    self.deinitExceptSwapchain(ctx);
+    self.deinitExceptSwapchain();
     self.* = try initRecycle(
-        ctx,
+        old_ctx,
         old_surf,
         old_handle,
     );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-pub fn waitForAllFences(self: *Self, ctx: *Context) !void {
+pub fn waitForAllFences(self: *Self) !void {
     for (self.swap_images) |si| {
-        try si.waitForFence(ctx);
+        try si.waitForFence(self.ctx);
     }
 }
 
@@ -266,18 +271,17 @@ pub fn currentSwapImage(self: *Self) *const SwapImage {
 /// @return
 pub fn present(
     self: *Self,
-    ctx: *Context,
 ) !PresentState {
     //Log.debug("present {}", .{self.surface.handle});
 
     const current = self.currentSwapImage();
-    try current.waitForFence(ctx);
-    try ctx.device.resetFences(1, @ptrCast(&current.frame_fence));
+    try current.waitForFence(self.ctx);
+    try self.ctx.device.resetFences(1, @ptrCast(&current.frame_fence));
 
     const wait_stage = [_]vk.PipelineStageFlags{
         .{ .top_of_pipe_bit = true },
     };
-    try ctx.device.queueSubmit(
+    try self.ctx.device.queueSubmit(
         self.surface.graphics_queue.handle,
         1,
         &[_]vk.SubmitInfo{
@@ -294,7 +298,7 @@ pub fn present(
         current.frame_fence,
     );
 
-    if (try ctx.device.queuePresentKHR(
+    if (try self.ctx.device.queuePresentKHR(
         self.surface.present_queue.handle,
         &.{
             .wait_semaphore_count = 1,
@@ -307,7 +311,7 @@ pub fn present(
         return Errors.QueuePresentFailed;
     }
 
-    const result = try ctx.device.acquireNextImageKHR(
+    const result = try self.ctx.device.acquireNextImageKHR(
         self.handle,
         std.math.maxInt(u64),
         self.next_image,

@@ -21,6 +21,7 @@ const Queue = struct {
     }
 };
 
+ctx: *Context,
 handle: vk.SurfaceKHR,
 video_surface: interface.Surface,
 graphics_queue: Queue,
@@ -43,6 +44,7 @@ pub fn init(ctx: *Context, surface: interface.Surface) !Self {
     Log.debug("surface created: {}", .{handle});
 
     return .{
+        .ctx = ctx,
         .handle = handle,
         .video_surface = surface,
         .graphics_queue = Queue.init(ctx.device, ctx.queues.graphics_family),
@@ -52,6 +54,6 @@ pub fn init(ctx: *Context, surface: interface.Surface) !Self {
 
 ///////////////////////////////////////////////////////////////////////////////
 ///
-pub fn deinit(self: *Self, ctx: *Context) void {
-    ctx.instance.destroySurfaceKHR(self.handle, null);
+pub fn deinit(self: *Self) void {
+    self.ctx.instance.destroySurfaceKHR(self.handle, null);
 }

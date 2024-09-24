@@ -5,6 +5,7 @@ const cake_video = @import("cake.video");
 const cake_render = @import("cake.render");
 
 const Self = @This();
+const Log = std.log.scoped(.@"cake.window");
 
 const SurfaceInterface = cake_render.SurfaceInterface;
 const SwapchainInterface = cake_video.SwapchainInterface;
@@ -36,11 +37,8 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
         }
 
         fn onResize(ctx: *anyopaque, sz: @Vector(2, u32)) !void {
-            _ = sz; // autofix
             const swpchain: *cake_render.Swapchain = @ptrCast(@alignCast(ctx));
-            try cake_render.recreateSwapchain(
-                swpchain,
-            );
+            try swpchain.recreate(sz);
         }
     };
 

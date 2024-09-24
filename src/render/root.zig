@@ -71,7 +71,7 @@ pub fn deinit() void {
 /// tick the renderer
 pub fn tick() !void {
     for (swapchains.items) |sc| {
-        const state = try sc.present(&context);
+        const state = try sc.present();
 
         switch (state) {
             .optimal => {},
@@ -107,7 +107,7 @@ pub fn destroySurface(surface: *Surface) void {
         _ = surfaces.swapRemove(i);
     }
 
-    surface.deinit(&context);
+    surface.deinit();
     context.allocator.destroy(surface);
 }
 
@@ -126,11 +126,6 @@ pub fn createSwapchain(surface: *Surface) !*Swapchain {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-pub fn recreateSwapchain(swapchain: *Swapchain) !void {
-    try swapchain.recreate(&context);
-}
-
-///////////////////////////////////////////////////////////////////////////////
 /// destroy a swapchain
 /// @param swapchain
 pub fn destroySwapchain(swapchain: *Swapchain) void {
@@ -143,7 +138,7 @@ pub fn destroySwapchain(swapchain: *Swapchain) void {
         _ = swapchains.swapRemove(i);
     }
 
-    swapchain.deinit(&context);
+    swapchain.deinit();
     context.allocator.destroy(swapchain);
 }
 

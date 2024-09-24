@@ -15,8 +15,8 @@ const Errors = error{
     RoundtripFailed,
 };
 
+ctx: *const Context,
 surface: *wl.Surface,
-region: *wl.Region,
 xdg_surface: *xdg.Surface,
 top_level: *xdg.Toplevel,
 decoration: *zxdg.ToplevelDecorationV1,
@@ -42,11 +42,11 @@ pub fn init(
     title: [:0]const u8,
     size: @Vector(2, u32),
 ) !void {
+    self.ctx = ctx;
     self.size = size;
     self.close_requested = false;
     self.swapchain = null;
     self.surface = try ctx.compositor.createSurface();
-    self.region = try ctx.compositor.createRegion();
 
     self.xdg_surface = try ctx.xdg_wm_base.getXdgSurface(self.surface);
     self.top_level = try self.xdg_surface.getToplevel();
@@ -92,7 +92,6 @@ pub fn init(
 ///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
     self.surface.destroy();
-    self.region.destroy();
     self.xdg_surface.destroy();
     self.top_level.destroy();
     self.decoration.destroy();
@@ -113,22 +112,17 @@ fn setAppId(self: *Self, app_id: [:0]const u8) void {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-fn updateOpaqueArea(self: *Self) void {
-    self.region.add(
-        0,
-        0,
-        @intCast(self.size[0]),
-        @intCast(self.size[1]),
-    );
-    self.surface.setOpaqueRegion(self.region);
-    self.region.subtract(
-        0,
-        0,
-        @intCast(self.size[0]),
-        @intCast(self.size[1]),
-    );
+fn updateOpaqueArea(self: *Self) !void {
+    var region = try self.ctx.compositor.createRegion();
+    defer region.destroy();
 
-    // todo update swapchain
+    region.add(
+        0,
+        0,
+        @intCast(self.size[0]),
+        @intCast(self.size[1]),
+    );
+    self.surface.setOpaqueRegion(region);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -157,23 +151,30 @@ fn topLevelListener(
 ) void {
     switch (event) {
         .configure => |c| {
-            if (c.width == 0 or c.height == 0) {
+            const w: u32 = @intCast(c.width);
+            const h: u32 = @intCast(c.height);
+
+            if (w == 0 and h == 0) {
                 return;
             }
 
-            self.size = @Vector(2, u32){
-                @intCast(c.width),
-                @intCast(c.height),
-            };
+            if (self.size[0] == w and self.size[1] == h) {
+                return;
+            }
+
+            self.size = @Vector(2, u32){ w, h };
 
             Log.debug("{p} configure {}", .{ self.surface, self.size });
+
             if (self.swapchain) |*sc| {
                 sc.onResize(self.size) catch |err| {
                     Log.err("failed to resize swapchain: {s}", .{@errorName(err)});
                 };
             }
 
-            self.updateOpaqueArea();
+            self.updateOpaqueArea() catch |err| {
+                Log.err("failed to update opaque area {s}", .{@errorName(err)});
+            };
         },
         .close => {
             self.close_requested = true;
