@@ -45,6 +45,8 @@ pub fn init(options: Options) !void {
     });
 }
 
+///////////////////////////////////////////////////////////////////////////////
+/// deinit cake
 pub fn deinit() void {
     cake_render.deinit();
     cake_video.deinit();
