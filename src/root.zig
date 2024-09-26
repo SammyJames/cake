@@ -9,6 +9,7 @@ pub const Errors = error{
 };
 
 pub const Window = @import("window.zig");
+pub const Ui = @import("ui.zig");
 
 /// options for initializing cake!
 pub const Options = struct {

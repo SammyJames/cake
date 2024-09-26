@@ -1,8 +1,9 @@
-//! Cake
+//! Cake - its a piece of cake
 
 const std = @import("std");
 
 const Self = @This();
+const Log = std.log.scoped(.@"cake.context");
 
 allocator: std.mem.Allocator,
 

@@ -4,15 +4,33 @@ const std = @import("std");
 const cake_video = @import("cake.video");
 const cake_render = @import("cake.render");
 
+const Ui = @import("ui.zig");
+
 const Self = @This();
 const Log = std.log.scoped(.@"cake.window");
 
 const SurfaceInterface = cake_render.SurfaceInterface;
 const SwapchainInterface = cake_video.SwapchainInterface;
 
+pub const TickInterface = struct {
+    ptr: *anyopaque,
+    vtable: struct {
+        on_tick: *const fn (*anyopaque, Ui) anyerror!void,
+    },
+
+    fn onTick(self: @This(), ui_state: Ui) !void {
+        try @call(
+            .auto,
+            self.vtable.on_tick,
+            .{ self.ptr, ui_state },
+        );
+    }
+};
+
 video_surface: *cake_video.Surface,
 render_surface: *cake_render.Surface,
 render_swapchain: *cake_render.Swapchain,
+ui_state: Ui,
 
 ///////////////////////////////////////////////////////////////////////////////
 /// create a window
@@ -68,6 +86,7 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
         .video_surface = video_surface,
         .render_surface = render_surface,
         .render_swapchain = render_swapchain,
+        .ui_state = try Ui.init(),
     };
 }
 
@@ -88,6 +107,10 @@ pub fn wantsClose(self: Self) bool {
 
 ///////////////////////////////////////////////////////////////////////////////
 /// tick the window
-pub fn tick(self: Self) !void {
-    _ = self; // autofix
+pub fn tick(self: Self, tickable: TickInterface) !void {
+    self.ui_state.beginFrame();
+
+    try tickable.onTick(self.ui_state);
+
+    self.ui_state.endFrame();
 }

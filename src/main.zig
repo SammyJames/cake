@@ -20,15 +20,101 @@ pub fn main() !void {
     });
     defer cake.deinit();
 
-    const win1 = try cake.Window.init("Bakery", .{ 1920, 1080 });
-    defer win1.deinit();
+    var main_window = MainWindow.init(
+        try cake.Window.init("Bakery", .{ 1920, 1080 }),
+    );
+    defer main_window.deinit();
 
-    const win2 = try cake.Window.init("Bakery", .{ 1024, 768 });
-    defer win2.deinit();
+    var secondary_window = SecondaryWindow.init(
+        try cake.Window.init("Bakery", .{ 1024, 768 }),
+    );
+    defer secondary_window.deinit();
 
-    while (!win1.wantsClose() and !win2.wantsClose()) {
-        try win1.tick();
-        try win2.tick();
+    while (!main_window.window.wantsClose() and !secondary_window.window.wantsClose()) {
+        try main_window.tick();
+        try secondary_window.tick();
         try cake.tick();
     }
 }
+
+const MainWindow = struct {
+    const Self = @This();
+
+    window: cake.Window,
+
+    fn init(window: cake.Window) Self {
+        return .{
+            .window = window,
+        };
+    }
+
+    fn deinit(self: *Self) void {
+        self.window.deinit();
+    }
+
+    fn tick(self: *Self) !void {
+        try self.window.tick(self.tickable());
+    }
+
+    fn update_ui(self: *Self, ui: cake.Ui) !void {
+        _ = self; // autofix
+        _ = ui; // autofix
+    }
+
+    fn tickable(self: *Self) cake.Window.TickInterface {
+        const Anon = struct {
+            fn tickAnon(ctx: *anyopaque, ui: cake.Ui) !void {
+                const win: *Self = @ptrCast(@alignCast(ctx));
+                try win.update_ui(ui);
+            }
+        };
+
+        return .{
+            .ptr = self,
+            .vtable = .{
+                .on_tick = Anon.tickAnon,
+            },
+        };
+    }
+};
+
+const SecondaryWindow = struct {
+    const Self = @This();
+
+    window: cake.Window,
+
+    fn init(window: cake.Window) Self {
+        return .{
+            .window = window,
+        };
+    }
+
+    fn deinit(self: *Self) void {
+        self.window.deinit();
+    }
+
+    fn tick(self: *Self) !void {
+        try self.window.tick(self.tickable());
+    }
+
+    fn update_ui(self: *Self, ui: cake.Ui) !void {
+        _ = self; // autofix
+        _ = ui; // autofix
+    }
+
+    fn tickable(self: *Self) cake.Window.TickInterface {
+        const Anon = struct {
+            fn tickAnon(ctx: *anyopaque, ui: cake.Ui) !void {
+                const win: *Self = @ptrCast(@alignCast(ctx));
+                try win.update_ui(ui);
+            }
+        };
+
+        return .{
+            .ptr = self,
+            .vtable = .{
+                .on_tick = Anon.tickAnon,
+            },
+        };
+    }
+};
