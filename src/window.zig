@@ -1,4 +1,4 @@
-//! Cake
+//! Cake - its a piece of cake
 
 const std = @import("std");
 const cake_video = @import("cake.video");
@@ -11,21 +11,6 @@ const Log = std.log.scoped(.@"cake.window");
 
 const SurfaceInterface = cake_render.SurfaceInterface;
 const SwapchainInterface = cake_video.SwapchainInterface;
-
-pub const TickInterface = struct {
-    ptr: *anyopaque,
-    vtable: struct {
-        on_tick: *const fn (*anyopaque, Ui) anyerror!void,
-    },
-
-    fn onTick(self: @This(), ui_state: Ui) !void {
-        try @call(
-            .auto,
-            self.vtable.on_tick,
-            .{ self.ptr, ui_state },
-        );
-    }
-};
 
 video_surface: *cake_video.Surface,
 render_surface: *cake_render.Surface,
@@ -114,3 +99,20 @@ pub fn tick(self: Self, tickable: TickInterface) !void {
 
     self.ui_state.endFrame();
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// used to abstract ticking
+pub const TickInterface = struct {
+    ptr: *anyopaque,
+    vtable: struct {
+        on_tick: *const fn (*anyopaque, Ui) anyerror!void,
+    },
+
+    fn onTick(self: @This(), ui_state: Ui) !void {
+        try @call(
+            .auto,
+            self.vtable.on_tick,
+            .{ self.ptr, ui_state },
+        );
+    }
+};

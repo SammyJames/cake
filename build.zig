@@ -1,4 +1,4 @@
-//! Cake
+//! Cake - its a piece of cake
 
 const std = @import("std");
 const builtin = @import("builtin");
