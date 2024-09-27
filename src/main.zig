@@ -30,6 +30,8 @@ pub fn main() !void {
     );
     defer secondary_window.deinit();
 
+    main_window.window.setSize(.{ 2560, 1440 });
+
     while (!main_window.window.wantsClose() and !secondary_window.window.wantsClose()) {
         try main_window.tick();
         try secondary_window.tick();

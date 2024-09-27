@@ -75,7 +75,9 @@ pub fn init(
     self.surface.commit();
 
     self.state = .waiting_for_configuration;
-    while (ctx.display.dispatch() == .SUCCESS and self.state != .configured) {}
+    while (ctx.display.dispatch() == .SUCCESS and self.state != .configured) {
+        try std.Thread.yield();
+    }
 
     self.decoration = try ctx.zxdg_decoration_man.getToplevelDecoration(
         self.top_level,
@@ -102,6 +104,18 @@ pub fn deinit(self: *Self) void {
 /// @param title the title
 pub fn setTitle(self: *Self, title: [:0]const u8) void {
     self.top_level.setTitle(title.ptr);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// set the size of the surface
+/// @param size
+pub fn setSize(self: *Self, size: @Vector(2, u32)) void {
+    self.xdg_surface.setWindowGeometry(
+        0,
+        0,
+        @intCast(size[0]),
+        @intCast(size[1]),
+    );
 }
 
 ///////////////////////////////////////////////////////////////////////////////

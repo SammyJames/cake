@@ -163,7 +163,6 @@ pub fn initRecycle(
     errdefer ctx.device.destroySwapchainKHR(handle, null);
 
     if (old_handle != .null_handle) {
-        // Apparently, the old swapchain handle still needs to be destroyed after recreating.
         ctx.device.destroySwapchainKHR(old_handle, null);
     }
 
@@ -269,9 +268,7 @@ pub fn currentSwapImage(self: *Self) *const SwapImage {
 /// present this swapchain
 /// @param ctx the render context
 /// @return
-pub fn present(
-    self: *Self,
-) !PresentState {
+pub fn present(self: *Self) !PresentState {
     //Log.debug("present {}", .{self.surface.handle});
 
     const current = self.currentSwapImage();
@@ -341,7 +338,7 @@ const SwapImage = struct {
     frame_fence: vk.Fence,
 
     ///////////////////////////////////////////////////////////////////////////
-    fn init(ctx: *const Context, image: vk.Image, format: vk.Format) !SwapImage {
+    fn init(ctx: *const Context, image: vk.Image, format: vk.Format) !@This() {
         const view = try ctx.device.createImageView(
             &.{
                 .image = image,
@@ -392,7 +389,7 @@ const SwapImage = struct {
         );
         errdefer ctx.device.destroyFence(frame_fence, null);
 
-        return SwapImage{
+        return .{
             .image = image,
             .view = view,
             .image_acquired = image_acquired,
@@ -402,7 +399,7 @@ const SwapImage = struct {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    fn deinit(self: SwapImage, ctx: *const Context) void {
+    fn deinit(self: @This(), ctx: *const Context) void {
         self.waitForFence(ctx) catch return;
         ctx.device.destroyImageView(self.view, null);
         ctx.device.destroySemaphore(self.image_acquired, null);
@@ -411,7 +408,7 @@ const SwapImage = struct {
     }
 
     ///////////////////////////////////////////////////////////////////////////
-    fn waitForFence(self: SwapImage, ctx: *const Context) !void {
+    fn waitForFence(self: @This(), ctx: *const Context) !void {
         if (try ctx.device.waitForFences(
             1,
             @ptrCast(&self.frame_fence),
@@ -436,14 +433,21 @@ fn initSwapchainImages(
     );
     defer ctx.allocator.free(images);
 
-    const swap_images = try ctx.allocator.alloc(SwapImage, images.len);
+    const swap_images = try ctx.allocator.alloc(
+        SwapImage,
+        images.len,
+    );
     errdefer ctx.allocator.free(swap_images);
 
     var i: usize = 0;
     errdefer for (swap_images[0..i]) |si| si.deinit(ctx);
 
     for (images) |image| {
-        swap_images[i] = try SwapImage.init(ctx, image, format);
+        swap_images[i] = try SwapImage.init(
+            ctx,
+            image,
+            format,
+        );
         i += 1;
     }
 

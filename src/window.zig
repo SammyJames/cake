@@ -116,3 +116,17 @@ pub const TickInterface = struct {
         );
     }
 };
+
+///////////////////////////////////////////////////////////////////////////////
+/// update this window's title
+/// @param title the title to use
+pub fn setTitle(self: Self, title: [:0]const u8) void {
+    self.video_surface.setTitle(title);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+/// update this window's size
+/// @param size the size
+pub fn setSize(self: Self, size: @Vector(2, u32)) void {
+    self.video_surface.setSize(size);
+}
