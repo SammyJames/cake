@@ -8,6 +8,7 @@ pub const Errors = error{
     InitFailed,
 };
 
+pub const App = @import("app.zig");
 pub const Window = @import("window.zig");
 pub const Ui = @import("ui.zig");
 

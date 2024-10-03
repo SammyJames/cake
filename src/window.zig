@@ -12,9 +12,16 @@ const Log = std.log.scoped(.@"cake.window");
 const SurfaceInterface = cake_render.SurfaceInterface;
 const SwapchainInterface = cake_video.SwapchainInterface;
 
-video_surface: *cake_video.Surface,
-render_surface: *cake_render.Surface,
-render_swapchain: *cake_render.Swapchain,
+allocator: std.mem.Allocator,
+video: struct {
+    surface: *cake_video.Surface,
+},
+render: struct {
+    surface: *cake_render.Surface,
+    swapchain: *cake_render.Swapchain,
+},
+
+on_tick: ?TickInterface,
 ui_state: Ui,
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -22,11 +29,16 @@ ui_state: Ui,
 /// @param title the title of the window
 /// @param size the size of the window
 /// @return a new window
-pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
+pub fn init(
+    allocator: std.mem.Allocator,
+    title: [:0]const u8,
+    size: @Vector(2, u32),
+) !Self {
     const video_surface = try cake_video.createSurface(
         title,
         size,
     );
+    errdefer cake_video.destroySurface(video_surface);
 
     const Anon = struct {
         fn getOsSurface(ctx: *anyopaque) *anyopaque {
@@ -54,13 +66,15 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
             },
         },
     );
+    errdefer cake_render.destroySurface(render_surface);
 
-    const render_swapchain = try cake_render.createSwapchain(
+    const swapchain = try cake_render.createSwapchain(
         render_surface,
     );
+    errdefer cake_render.destroySwapchain(swapchain);
 
     const swap_interface = SwapchainInterface{
-        .ptr = render_swapchain,
+        .ptr = swapchain,
         .vtable = .{
             .on_resize = Anon.onResize,
         },
@@ -68,34 +82,43 @@ pub fn init(title: [:0]const u8, size: @Vector(2, u32)) !Self {
     video_surface.swapchain = swap_interface;
 
     return .{
-        .video_surface = video_surface,
-        .render_surface = render_surface,
-        .render_swapchain = render_swapchain,
-        .ui_state = try Ui.init(),
+        .allocator = allocator,
+        .video = .{
+            .surface = video_surface,
+        },
+        .render = .{
+            .surface = render_surface,
+            .swapchain = swapchain,
+        },
+        .on_tick = null,
+        .ui_state = try Ui.init(allocator, swapchain),
     };
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// destroy a window
-pub fn deinit(self: Self) void {
-    cake_render.destroySwapchain(self.render_swapchain);
-    cake_render.destroySurface(self.render_surface);
-    cake_video.destroySurface(self.video_surface);
+pub fn deinit(self: *Self) void {
+    self.ui_state.deinit();
+    cake_render.destroySwapchain(self.render.swapchain);
+    cake_render.destroySurface(self.render.surface);
+    cake_video.destroySurface(self.video.surface);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// determine if the window should close
 /// @return true if the window wants to close
-pub fn wantsClose(self: Self) bool {
-    return self.video_surface.close_requested;
+pub fn closeRequested(self: Self) bool {
+    return self.video.surface.close_requested;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// tick the window
-pub fn tick(self: Self, tickable: TickInterface) !void {
+pub fn tick(self: Self) !void {
     self.ui_state.beginFrame();
 
-    try tickable.onTick(self.ui_state);
+    if (self.on_tick) |*ot| {
+        try ot.onTick(self.ui_state);
+    }
 
     self.ui_state.endFrame();
 }
@@ -121,12 +144,12 @@ pub const TickInterface = struct {
 /// update this window's title
 /// @param title the title to use
 pub fn setTitle(self: Self, title: [:0]const u8) void {
-    self.video_surface.setTitle(title);
+    self.video.surface.setTitle(title);
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// update this window's size
 /// @param size the size
 pub fn setSize(self: Self, size: @Vector(2, u32)) void {
-    self.video_surface.setSize(size);
+    self.video.surface.setSize(size);
 }

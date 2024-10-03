@@ -14,27 +14,25 @@ pub fn main() !void {
 
     const alloc = gpa.allocator();
 
-    try cake.init(.{
-        .allocator = alloc,
-        .app_id = "bakery",
-    });
-    defer cake.deinit();
+    var app = try cake.App.init(alloc);
+    defer app.deinit();
 
-    var main_window = MainWindow.init(
-        try cake.Window.init("Bakery", .{ 1920, 1080 }),
-    );
-    defer main_window.deinit();
+    var w1 = try app.createWindow("Bakery", .{ 1920, 1080 });
+    var main_window = MainWindow.init(w1);
+    defer main_window.deinit(&app);
 
-    var secondary_window = SecondaryWindow.init(
-        try cake.Window.init("Bakery", .{ 1024, 768 }),
-    );
-    defer secondary_window.deinit();
+    w1.on_tick = main_window.tickable();
+
+    var w2 = try app.createWindow("Bakery", .{ 1024, 768 });
+    var secondary_window = SecondaryWindow.init(w2);
+    defer secondary_window.deinit(&app);
+
+    w2.on_tick = secondary_window.tickable();
 
     main_window.window.setSize(.{ 2560, 1440 });
 
-    while (!main_window.window.wantsClose() and !secondary_window.window.wantsClose()) {
-        try main_window.tick();
-        try secondary_window.tick();
+    while (!app.exitRequested()) {
+        try app.tick();
         try cake.tick();
     }
 }
@@ -42,20 +40,16 @@ pub fn main() !void {
 const MainWindow = struct {
     const Self = @This();
 
-    window: cake.Window,
+    window: *cake.Window,
 
-    fn init(window: cake.Window) Self {
+    fn init(window: *cake.Window) Self {
         return .{
             .window = window,
         };
     }
 
-    fn deinit(self: *Self) void {
-        self.window.deinit();
-    }
-
-    fn tick(self: *Self) !void {
-        try self.window.tick(self.tickable());
+    fn deinit(self: *Self, app: *cake.App) void {
+        app.destroyWindow(self.window);
     }
 
     fn update_ui(self: *Self, ui: cake.Ui) !void {
@@ -83,20 +77,16 @@ const MainWindow = struct {
 const SecondaryWindow = struct {
     const Self = @This();
 
-    window: cake.Window,
+    window: *cake.Window,
 
-    fn init(window: cake.Window) Self {
+    fn init(window: *cake.Window) Self {
         return .{
             .window = window,
         };
     }
 
-    fn deinit(self: *Self) void {
-        self.window.deinit();
-    }
-
-    fn tick(self: *Self) !void {
-        try self.window.tick(self.tickable());
+    fn deinit(self: *Self, app: *cake.App) void {
+        app.destroyWindow(self.window);
     }
 
     fn update_ui(self: *Self, ui: cake.Ui) !void {

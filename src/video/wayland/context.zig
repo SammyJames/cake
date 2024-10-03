@@ -21,7 +21,7 @@ display: *wl.Display,
 registry: *wl.Registry,
 compositor: *wl.Compositor,
 shm: *wl.Shm,
-output: *wl.Output,
+outputs: std.ArrayList(*wl.Output),
 xdg_wm_base: *xdg.WmBase,
 zxdg_decoration_man: *zxdg.DecorationManagerV1,
 seat: *wl.Seat,
@@ -43,6 +43,8 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
     self.display = try wl.Display.connect(null);
     self.registry = try self.display.getRegistry();
 
+    self.outputs = std.ArrayList(*wl.Output).init(allocator);
+
     self.registry.setListener(*Self, registryListener, self);
 
     self.state = .waiting_on_capabilities;
@@ -56,10 +58,12 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
 
 ///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
+    for (self.outputs.items) |o| o.destroy();
+    self.outputs.deinit();
+
     self.registry.destroy();
     self.compositor.destroy();
     self.shm.destroy();
-    self.output.destroy();
     self.xdg_wm_base.destroy();
     self.zxdg_decoration_man.destroy();
     self.seat.destroy();
@@ -127,80 +131,70 @@ fn registryListener(
     event: wl.Registry.Event,
     self: *Self,
 ) void {
+    const Handlers = struct {
+        fn handleCompositor(
+            s: *Self,
+            r: *wl.Registry,
+            name: u32,
+        ) void {
+            s.compositor = r.bind(name, wl.Compositor, 6) catch |err| {
+                std.debug.panic("failed to bind compositor interface {s}", .{@errorName(err)});
+            };
+        }
+
+        fn handleSeat(s: *Self, r: *wl.Registry, name: u32) void {
+            s.seat = r.bind(name, wl.Seat, 9) catch |err| {
+                std.debug.panic("failed to bind seat interface {s}", .{@errorName(err)});
+            };
+
+            s.seat.setListener(*Self, seatListener, s);
+        }
+
+        fn handleShm(s: *Self, r: *wl.Registry, name: u32) void {
+            s.shm = r.bind(name, wl.Shm, 2) catch |err| {
+                std.debug.panic("failed to bind shm interface {s}", .{@errorName(err)});
+            };
+        }
+
+        fn handleOutput(s: *Self, r: *wl.Registry, name: u32) void {
+            const output = r.bind(name, wl.Output, 4) catch |err| {
+                std.debug.panic("failed to bind output interface {s}", .{@errorName(err)});
+            };
+
+            s.outputs.append(output) catch |err| {
+                std.debug.panic("failed to append to output list {s}", .{@errorName(err)});
+            };
+        }
+
+        fn handleWmBase(s: *Self, r: *wl.Registry, name: u32) void {
+            s.xdg_wm_base = r.bind(name, xdg.WmBase, 6) catch |err| {
+                std.debug.panic("failed to bind wmbase interface {s}", .{@errorName(err)});
+            };
+            s.xdg_wm_base.setListener(*Self, xdgWmBaseListener, s);
+        }
+
+        fn handleDecorationMan(s: *Self, r: *wl.Registry, name: u32) void {
+            s.zxdg_decoration_man = r.bind(name, zxdg.DecorationManagerV1, 1) catch |err| {
+                std.debug.panic("failed to bind decoration man interface {s}", .{@errorName(err)});
+            };
+        }
+    };
+
+    const Handler = *const fn (s: *Self, r: *wl.Registry, name: u32) void;
+    const handlers = std.StaticStringMap(Handler).initComptime(.{
+        .{ "wl_compositor", Handlers.handleCompositor },
+        .{ "wl_shm", Handlers.handleShm },
+        .{ "wl_seat", Handlers.handleSeat },
+        .{ "wl_output", Handlers.handleOutput },
+        .{ "xdg_wm_base", Handlers.handleWmBase },
+        .{ "zxdg_decoration_manager_v1", Handlers.handleDecorationMan },
+    });
+
     switch (event) {
         .global => |global| {
-            if (std.mem.orderZ(
-                u8,
-                global.interface,
-                wl.Seat.getInterface().name,
-            ) == .eq) {
-                self.seat = registry.bind(
-                    global.name,
-                    wl.Seat,
-                    1,
-                ) catch return;
-                self.seat.setListener(
-                    *Self,
-                    seatListener,
-                    self,
-                );
-            } else if (std.mem.orderZ(
-                u8,
-                global.interface,
-                wl.Compositor.getInterface().name,
-            ) == .eq) {
-                self.compositor = registry.bind(
-                    global.name,
-                    wl.Compositor,
-                    1,
-                ) catch return;
-            } else if (std.mem.orderZ(
-                u8,
-                global.interface,
-                wl.Shm.getInterface().name,
-            ) == .eq) {
-                self.shm = registry.bind(
-                    global.name,
-                    wl.Shm,
-                    1,
-                ) catch return;
-            } else if (std.mem.orderZ(
-                u8,
-                global.interface,
-                wl.Output.getInterface().name,
-            ) == .eq) {
-                self.output = registry.bind(
-                    global.name,
-                    wl.Output,
-                    1,
-                ) catch return;
-            } else if (std.mem.orderZ(
-                u8,
-                global.interface,
-                xdg.WmBase.getInterface().name,
-            ) == .eq) {
-                self.xdg_wm_base = registry.bind(
-                    global.name,
-                    xdg.WmBase,
-                    1,
-                ) catch return;
-                self.xdg_wm_base.setListener(
-                    *Self,
-                    xdgWmBaseListener,
-                    self,
-                );
-            } else if (std.mem.orderZ(
-                u8,
-                global.interface,
-                zxdg.DecorationManagerV1.getInterface().name,
-            ) == .eq) {
-                self.zxdg_decoration_man = registry.bind(
-                    global.name,
-                    zxdg.DecorationManagerV1,
-                    1,
-                ) catch return;
-            } else {
-                //Log.debug("ignoring {s}", .{global.interface});
+            if (handlers.get(std.mem.span(global.interface))) |func| {
+                Log.info("Binding {s}", .{global.interface});
+                @call(.auto, func, .{ self, registry, global.name });
             }
         },
         .global_remove => {},

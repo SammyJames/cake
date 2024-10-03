@@ -83,11 +83,12 @@ pub fn build(b: *std.Build) void {
                 .generate = @as(
                     []const []const u8,
                     &.{
-                        "wl_compositor:1",
-                        "wl_shm:1",
-                        "wl_seat:1",
-                        "wl_output:1",
-                        "xdg_wm_base:1",
+                        "wl_compositor:6",
+                        "wl_shm:2",
+                        "wl_seat:9",
+                        "wl_output:4",
+                        //"wl_surface:6",
+                        "xdg_wm_base:6",
                         "zxdg_decoration_manager_v1:1",
                     },
                 ),

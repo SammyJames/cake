@@ -10,7 +10,6 @@ pub const Errors = error{
 
 const Context = switch (build_options.RenderBackend) {
     .vulkan => @import("vulkan/context.zig"),
-    .d3d12 => @import("d3d12/context.zig"),
     else => @compileError(
         "unsupported render platform: " ++ @tagName(build_options.RenderBackend),
     ),
@@ -18,7 +17,6 @@ const Context = switch (build_options.RenderBackend) {
 
 pub const Swapchain = switch (build_options.RenderBackend) {
     .vulkan => @import("vulkan/swapchain.zig"),
-    .d3d12 => @import("d3d12/swapchain.zig"),
     else => @compileError(
         "unsupported render platform: " ++ @tagName(build_options.RenderBackend),
     ),
@@ -26,7 +24,13 @@ pub const Swapchain = switch (build_options.RenderBackend) {
 
 pub const Surface = switch (build_options.RenderBackend) {
     .vulkan => @import("vulkan/surface.zig"),
-    .d3d12 => @import("d3d12/surface.zig"),
+    else => @compileError(
+        "unsupported render platform: " ++ @tagName(build_options.RenderBackend),
+    ),
+};
+
+pub const Pass = switch (build_options.RenderBackend) {
+    .vulkan => @import("vulkan/render_pass.zig"),
     else => @compileError(
         "unsupported render platform: " ++ @tagName(build_options.RenderBackend),
     ),
@@ -140,6 +144,18 @@ pub fn destroySwapchain(swapchain: *Swapchain) void {
 
     swapchain.deinit();
     context.allocator.destroy(swapchain);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///
+pub fn createPass(swapchain: *Swapchain) !Pass {
+    return try Pass.init(&context, swapchain);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///
+pub fn destroyPass(render_pass: *Pass) void {
+    render_pass.deinit();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
