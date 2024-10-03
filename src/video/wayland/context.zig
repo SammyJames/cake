@@ -132,11 +132,7 @@ fn registryListener(
     self: *Self,
 ) void {
     const Handlers = struct {
-        fn handleCompositor(
-            s: *Self,
-            r: *wl.Registry,
-            name: u32,
-        ) void {
+        fn handleCompositor(s: *Self, r: *wl.Registry, name: u32) void {
             s.compositor = r.bind(name, wl.Compositor, 6) catch |err| {
                 std.debug.panic("failed to bind compositor interface {s}", .{@errorName(err)});
             };
