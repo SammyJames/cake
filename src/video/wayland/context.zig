@@ -22,10 +22,10 @@ display: *wl.Display,
 registry: *wl.Registry,
 compositor: *wl.Compositor,
 shm: *wl.Shm,
-outputs: std.ArrayList(*wl.Output),
 xdg_wm_base: *xdg.WmBase,
 zxdg_decoration_man: *zxdg.DecorationManagerV1,
 seat: *wl.Seat,
+outputs: std.ArrayList(*wl.Output),
 
 input: struct {
     pointer: *wl.Pointer,
@@ -293,7 +293,7 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
         .button => |b| {
             const e = InputEvent.Event{
                 .mouse_button = .{
-                    .button = b.button,
+                    .button = translateMouseButton(b.button) orelse .none,
                     .modifiers = self.input.modifiers,
                     .state = if (b.state == .pressed) .pressed else .released,
                 },
@@ -333,7 +333,7 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
         .key => |k| {
             const e = InputEvent.Event{
                 .key = .{
-                    .key = k.key,
+                    .key = translateKeyCode(k.key) orelse .none,
                     .modifiers = self.input.modifiers,
                     .state = if (k.state == .pressed) .pressed else .released,
                 },
@@ -351,6 +351,95 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
         },
         .repeat_info => {},
     }
+}
+
+fn translateMouseButton(code: u32) ?InputEvent.MouseButton {
+    return switch (code) {
+        272 => .left,
+        273 => .right,
+        274 => .middle,
+        275 => .four,
+        276 => .five,
+        else => null,
+    };
+}
+
+fn translateKeyCode(code: u32) ?InputEvent.Key {
+    Log.debug("key code {}", .{code});
+
+    return switch (code) {
+        1 => .escape,
+        2 => .@"1",
+        3 => .@"2",
+        4 => .@"3",
+        5 => .@"4",
+        6 => .@"5",
+        7 => .@"6",
+        8 => .@"7",
+        9 => .@"8",
+        10 => .@"9",
+        11 => .@"0",
+        12 => .@"-",
+        13 => .@"=",
+        14 => .backspace,
+
+        15 => .tab,
+        16 => .q,
+        17 => .w,
+        18 => .e,
+        19 => .r,
+        20 => .t,
+        21 => .y,
+        22 => .u,
+        23 => .i,
+        24 => .o,
+        25 => .p,
+        26 => .@"[",
+        27 => .@"]",
+        43 => .@"\\",
+
+        58 => .caps_lock,
+        30 => .a,
+        31 => .s,
+        32 => .d,
+        33 => .f,
+        34 => .g,
+        35 => .h,
+        36 => .j,
+        37 => .k,
+        38 => .l,
+        39 => .@";",
+        40 => .@"'",
+        28 => .@"return",
+
+        42 => .left_shift,
+        44 => .z,
+        45 => .x,
+        46 => .c,
+        47 => .v,
+        48 => .b,
+        49 => .n,
+        50 => .m,
+        51 => .@",",
+        52 => .@".",
+        53 => .@"/",
+        54 => .right_shift,
+
+        57 => .space,
+        59 => .f1,
+        60 => .f2,
+        61 => .f3,
+        62 => .f4,
+        63 => .f5,
+        64 => .f6,
+        65 => .f7,
+        66 => .f8,
+        67 => .f9,
+        68 => .f10,
+        69 => .f11,
+        70 => .f12,
+        else => null,
+    };
 }
 
 pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {

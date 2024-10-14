@@ -4,15 +4,15 @@ const std = @import("std");
 const cake_video = @import("cake.video");
 const cake_render = @import("cake.render");
 
-pub const Errors = error{
-    InitFailed,
-};
-
 pub const App = @import("app.zig");
 pub const Window = @import("window.zig");
 pub const Ui = @import("ui.zig");
 pub const InputListener = cake_video.InputListener;
 pub const InputEvent = cake_video.IntputEvent;
+
+pub const Errors = error{
+    InitFailed,
+};
 
 /// options for initializing cake!
 pub const Options = struct {
