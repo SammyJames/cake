@@ -1,8 +1,10 @@
 //! Cake.Video
 
+const std = @import("std");
+
 const Self = @This();
 
-const Modifiers = packed struct(u32) {
+pub const Modifiers = packed struct(u32) {
     ctrl: bool = false,
     alt: bool = false,
     shift: bool = false,

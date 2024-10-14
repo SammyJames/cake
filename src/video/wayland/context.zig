@@ -30,6 +30,7 @@ seat: *wl.Seat,
 input: struct {
     pointer: *wl.Pointer,
     keyboard: *wl.Keyboard,
+    modifiers: InputEvent.Modifiers,
     queue: std.fifo.LinearFifo(InputEvent, .Dynamic),
 },
 
@@ -46,6 +47,7 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
     self.allocator = allocator;
     self.app_id = app_id;
 
+    self.input.modifiers = std.mem.zeroInit(InputEvent.Modifiers, .{});
     self.input.queue = std.fifo.LinearFifo(InputEvent, .Dynamic).init(allocator);
 
     self.display = try wl.Display.connect(null);
@@ -292,7 +294,7 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
             const e = InputEvent.Event{
                 .mouse_button = .{
                     .button = b.button,
-                    .modifiers = .{},
+                    .modifiers = self.input.modifiers,
                     .state = if (b.state == .pressed) .pressed else .released,
                 },
             };
@@ -308,9 +310,10 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
         .motion => |m| {
             const e = InputEvent.Event{
                 .mouse_move = .{
+                    .modifiers = self.input.modifiers,
                     .position = .{
-                        @intCast(m.surface_x.toInt()),
-                        @intCast(m.surface_y.toInt()),
+                        @bitCast(@as(i32, m.surface_x.toInt())),
+                        @bitCast(@as(i32, m.surface_y.toInt())),
                     },
                 },
             };
@@ -331,7 +334,7 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
             const e = InputEvent.Event{
                 .key = .{
                     .key = k.key,
-                    .modifiers = .{},
+                    .modifiers = self.input.modifiers,
                     .state = if (k.state == .pressed) .pressed else .released,
                 },
             };
@@ -343,16 +346,19 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
         },
         .keymap => {},
         .leave => {},
-        .modifiers => {},
+        .modifiers => |m| {
+            _ = m; // autofix
+        },
         .repeat_info => {},
     }
 }
 
 pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
     while (self.input.queue.readItem()) |e| {
-        listeners: for (listeners) |l| {
-            const result = try l.onInput(e);
-            if (result) break :listeners;
+        var event = e;
+        for (listeners) |l| {
+            const result = try l.onInput(event);
+            event.handled = result;
         }
     }
 }
