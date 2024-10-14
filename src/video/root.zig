@@ -6,6 +6,8 @@ const interface = @import("interface.zig");
 
 pub const Errors = error{
     VideoInitializationFailed,
+    NoContext,
+    NoSurfaces,
 };
 
 const Context = switch (build_options.VideoBackend) {
@@ -22,8 +24,8 @@ pub const Surface = switch (build_options.VideoBackend) {
 
 pub const SwapchainInterface = interface.Swapchain;
 
-var context: Context = undefined;
-var surfaces: std.ArrayList(*Surface) = undefined;
+var context: ?Context = null;
+var surfaces: ?std.ArrayList(*Surface) = null;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
@@ -35,18 +37,27 @@ pub const Options = struct {
 /// @param options options to use for this module
 pub fn init(options: Options) !void {
     surfaces = std.ArrayList(*Surface).init(options.allocator);
-    try context.init(options.allocator, options.app_id);
+
+    context = undefined;
+    if (context) |*ctx| {
+        try ctx.init(
+            options.allocator,
+            options.app_id,
+        );
+    } else {
+        return Errors.NoContext;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 pub fn deinit() void {
-    surfaces.deinit();
-    context.deinit();
+    if (surfaces) |*s| s.deinit();
+    if (context) |*ctx| ctx.deinit();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 pub fn renderData() *anyopaque {
-    return context.renderData();
+    return context.?.renderData();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -58,35 +69,56 @@ pub fn createSurface(
     title: [:0]const u8,
     size: @Vector(2, u32),
 ) !*Surface {
-    const surf = try context.allocator.create(Surface);
-    errdefer context.allocator.destroy(surf);
+    if (context) |*ctx| {
+        const surf = try ctx.allocator.create(Surface);
+        errdefer ctx.allocator.destroy(surf);
 
-    try surf.init(&context, title, size);
+        try surf.init(ctx, title, size);
 
-    try surfaces.append(surf);
+        if (surfaces) |*s| {
+            try s.append(surf);
+        } else {
+            return Errors.NoSurfaces;
+        }
 
-    return surf;
+        return surf;
+    }
+
+    return Errors.NoContext;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// destroy a surface
 /// @param surface the surface to destroy
-pub fn destroySurface(surface: *Surface) void {
-    const index = std.mem.indexOfScalar(
-        *Surface,
-        surfaces.items,
-        surface,
-    );
-    if (index) |i| {
-        _ = surfaces.swapRemove(i);
+pub fn destroySurface(surface: *Surface) !void {
+    if (surfaces) |*s| {
+        const index = std.mem.indexOfScalar(
+            *Surface,
+            s.items,
+            surface,
+        );
+        if (index) |i| {
+            _ = s.swapRemove(i);
+        }
+    } else {
+        return Errors.NoSurfaces;
     }
 
     surface.deinit();
-    context.allocator.destroy(surface);
+
+    if (context) |*ctx| {
+        ctx.allocator.destroy(surface);
+    } else {
+        return Errors.NoContext;
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 /// tick the video module
 pub fn tick() !void {
-    try context.tick();
+    if (context) |*ctx| {
+        try ctx.tick();
+    } else {
+        return Errors.NoContext;
+    }
 }

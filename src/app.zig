@@ -48,9 +48,9 @@ pub fn tick(self: *Self) !void {
 /// determine if the application should exit, by default this checks all
 /// windows to determine if they want to close
 pub fn exitRequested(self: *const Self) bool {
-    var result = true;
+    var result = false;
     for (self.windows.items) |w| {
-        result = result and w.closeRequested();
+        result = result or w.closeRequested();
     }
 
     return result;

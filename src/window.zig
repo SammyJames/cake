@@ -38,7 +38,8 @@ pub fn init(
         title,
         size,
     );
-    errdefer cake_video.destroySurface(video_surface);
+    errdefer cake_video.destroySurface(video_surface) catch
+        @panic("failed to destroy surface");
 
     const Anon = struct {
         fn getOsSurface(ctx: *anyopaque) *anyopaque {
@@ -66,12 +67,14 @@ pub fn init(
             },
         },
     );
-    errdefer cake_render.destroySurface(render_surface);
+    errdefer cake_render.destroySurface(render_surface) catch
+        @panic("unable to destroy surface");
 
     const swapchain = try cake_render.createSwapchain(
         render_surface,
     );
-    errdefer cake_render.destroySwapchain(swapchain);
+    errdefer cake_render.destroySwapchain(swapchain) catch
+        @panic("unable to destroy swapchain");
 
     const swap_interface = SwapchainInterface{
         .ptr = swapchain,
@@ -99,9 +102,23 @@ pub fn init(
 /// destroy a window
 pub fn deinit(self: *Self) void {
     self.ui_state.deinit();
-    cake_render.destroySwapchain(self.render.swapchain);
-    cake_render.destroySurface(self.render.surface);
-    cake_video.destroySurface(self.video.surface);
+    cake_render.destroySwapchain(self.render.swapchain) catch |err| {
+        std.debug.panic("failed to destroy swapchain {s}", .{
+            @errorName(err),
+        });
+    };
+
+    cake_render.destroySurface(self.render.surface) catch |err| {
+        std.debug.panic("failed to destroy surface {s}", .{
+            @errorName(err),
+        });
+    };
+
+    cake_video.destroySurface(self.video.surface) catch |err| {
+        std.debug.panic("failed to destroy surface {s}", .{
+            @errorName(err),
+        });
+    };
 }
 
 ///////////////////////////////////////////////////////////////////////////////
