@@ -8,14 +8,11 @@ const Context = @import("context.zig");
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan.frame_buffer");
 
-ctx: *Context,
-handle: vk.Framebuffer,
+ctx: ?*Context = null,
+handle: vk.Framebuffer = .null_handle,
 
-///////////////////////////////////////////////////////////////////////////////
 ///
-pub fn init(
-    ctx: *Context,
-) !Self {
+pub fn init(ctx: *Context) !Self {
     const fb = try ctx.device.createFramebuffer(
         &.{},
         null,
@@ -31,12 +28,13 @@ pub fn init(
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
 pub fn deinit(self: *Self) void {
-    self.ctx.device.destroyFramebuffer(
-        self.handle,
-        null,
-    );
+    if (self.ctx) |ctx| {
+        ctx.device.destroyFramebuffer(
+            self.handle,
+            null,
+        );
+    }
     self.handle = .null_handle;
 }

@@ -31,15 +31,10 @@ state: enum {
     capabilities_found,
 } = .invalid,
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize the wayland video context
+/// Initialize the wayland video context
 /// @param allocator the allocator interface to use
 /// @param app_id the application identifier
-pub fn init(
-    self: *Self,
-    allocator: std.mem.Allocator,
-    app_id: [:0]const u8,
-) !void {
+pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !void {
     self.allocator = allocator;
     self.app_id = app_id;
 
@@ -59,7 +54,6 @@ pub fn init(
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
     for (self.outputs.items) |o| o.destroy();
     self.outputs.deinit();
@@ -73,14 +67,12 @@ pub fn deinit(self: *Self) void {
     self.display.disconnect();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// get the display
+/// Get the display
 pub fn renderData(self: *Self) *anyopaque {
     return self.display;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// tick the wayland video context
+/// Tick the wayland video context
 pub fn tick(self: *Self) !void {
     var fds = [_]std.posix.pollfd{
         .{ .fd = self.display.getFd(), .events = std.posix.POLL.IN, .revents = 0 },
@@ -116,7 +108,6 @@ pub fn tick(self: *Self) !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 fn flushDisplay(self: *Self) bool {
     while (self.display.flush() != .SUCCESS) {
         var fds = [_]std.posix.pollfd{
@@ -129,12 +120,7 @@ fn flushDisplay(self: *Self) bool {
     return true;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-fn registryListener(
-    registry: *wl.Registry,
-    event: wl.Registry.Event,
-    self: *Self,
-) void {
+fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Self) void {
     const Handlers = struct {
         fn handleCompositor(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.compositor = r.bind(name, wl.Compositor, ver) catch |err| {
@@ -237,12 +223,7 @@ fn registryListener(
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-fn seatListener(
-    _: *wl.Seat,
-    event: wl.Seat.Event,
-    self: *Self,
-) void {
+fn seatListener(_: *wl.Seat, event: wl.Seat.Event, self: *Self) void {
     switch (event) {
         .capabilities => |c| {
             Log.debug("seat capabilities\n\tPointer {}\n\tKeyboard {}\n\tTouch {}\n", .{
@@ -256,12 +237,7 @@ fn seatListener(
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-fn xdgWmBaseListener(
-    wm_base: *xdg.WmBase,
-    event: xdg.WmBase.Event,
-    _: *Self,
-) void {
+fn xdgWmBaseListener(wm_base: *xdg.WmBase, event: xdg.WmBase.Event, _: *Self) void {
     switch (event) {
         .ping => |s| {
             Log.debug("wm ping {} => pong", .{

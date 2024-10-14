@@ -11,6 +11,8 @@ const Errors = error{
     QueuePresentFailed,
     ImageAcquireFailed,
     FenceWaitFailed,
+    NoContext,
+    NoSurface,
 };
 
 pub const PresentState = enum {
@@ -18,20 +20,22 @@ pub const PresentState = enum {
     suboptimal,
 };
 
-ctx: *Context,
+ctx: ?*Context = null,
 
-surface: *Surface,
-surface_format: vk.SurfaceFormatKHR,
-present_mode: vk.PresentModeKHR,
-extent: vk.Extent2D,
-handle: vk.SwapchainKHR,
+surface: ?*Surface = null,
+surface_format: vk.SurfaceFormatKHR = .{
+    .format = .undefined,
+    .color_space = .srgb_nonlinear_khr,
+},
+present_mode: vk.PresentModeKHR = .fifo_khr,
+extent: vk.Extent2D = .{ .width = 0, .height = 0 },
+handle: vk.SwapchainKHR = .null_handle,
 
 swap_images: []SwapImage,
 image_index: u32,
 next_image: vk.Semaphore,
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize a swapchain from scratch
+/// Initialize a swapchain from scratch
 /// @param ctx
 /// @param surface
 /// @return a new swapchain
@@ -43,17 +47,12 @@ pub fn init(ctx: *Context, surface: *Surface) !Self {
     );
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize a swapchain, releasing the old one
+/// Initialize a swapchain, releasing the old one
 /// @param ctx
 /// @param size
 /// @param old_handle
 /// @return a new swapchain
-pub fn initRecycle(
-    ctx: *Context,
-    surface: *Surface,
-    old_handle: vk.SwapchainKHR,
-) !Self {
+pub fn initRecycle(ctx: *Context, surface: *Surface, old_handle: vk.SwapchainKHR) !Self {
     const caps = try ctx.instance.getPhysicalDeviceSurfaceCapabilitiesKHR(
         ctx.pdev,
         surface.handle,
@@ -212,124 +211,129 @@ pub fn initRecycle(
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
     self.deinitExceptSwapchain();
-    self.ctx.device.destroySwapchainKHR(
-        self.handle,
-        null,
-    );
-}
-
-///////////////////////////////////////////////////////////////////////////////
-fn deinitExceptSwapchain(self: *Self) void {
-    for (self.swap_images) |si| {
-        si.deinit(self.ctx);
+    if (self.ctx) |ctx| {
+        ctx.device.destroySwapchainKHR(
+            self.handle,
+            null,
+        );
     }
-    self.ctx.allocator.free(self.swap_images);
-    self.ctx.device.destroySemaphore(
-        self.next_image,
-        null,
-    );
 }
 
-///////////////////////////////////////////////////////////////////////////////
-pub fn recreate(self: *Self, size: @Vector(2, u32)) !void {
-    _ = size; // autofix
+fn deinitExceptSwapchain(self: *Self) void {
+    if (self.ctx) |ctx| {
+        for (self.swap_images) |si| {
+            si.deinit(ctx);
+        }
+
+        ctx.allocator.free(self.swap_images);
+        ctx.device.destroySemaphore(
+            self.next_image,
+            null,
+        );
+    }
+}
+
+pub fn recreate(self: *Self, _: @Vector(2, u32)) !void {
     const old_ctx = self.ctx;
     const old_handle = self.handle;
     const old_surf = self.surface;
     self.deinitExceptSwapchain();
     self.* = try initRecycle(
-        old_ctx,
-        old_surf,
+        old_ctx.?,
+        old_surf.?,
         old_handle,
     );
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn waitForAllFences(self: *Self) !void {
     for (self.swap_images) |si| {
         try si.waitForFence(self.ctx);
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn currentImage(self: *Self) vk.Image {
     return self.swap_images[self.image_index].image;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn currentSwapImage(self: *Self) *const SwapImage {
     return &self.swap_images[self.image_index];
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// present this swapchain
+/// Present this swapchain
 /// @param ctx the render context
 /// @return
 pub fn present(self: *Self) !PresentState {
     //Log.debug("present {}", .{self.surface.handle});
+    if (self.ctx) |ctx| {
 
-    const current = self.currentSwapImage();
-    try current.waitForFence(self.ctx);
-    try self.ctx.device.resetFences(1, @ptrCast(&current.frame_fence));
+        // note(sjames) - it would be really cool if zig had support for if (opt1 and opt2) |v1, v2| {}
+        if (self.surface) |sf| {
+            const current = self.currentSwapImage();
 
-    const wait_stage = [_]vk.PipelineStageFlags{
-        .{ .top_of_pipe_bit = true },
-    };
-    try self.ctx.device.queueSubmit(
-        self.surface.graphics_queue.handle,
-        1,
-        &[_]vk.SubmitInfo{
-            .{
-                .wait_semaphore_count = 1,
-                .p_wait_semaphores = @ptrCast(&current.image_acquired),
-                .p_wait_dst_stage_mask = &wait_stage,
-                .command_buffer_count = 0,
-                .p_command_buffers = null,
-                .signal_semaphore_count = 1,
-                .p_signal_semaphores = @ptrCast(&current.render_finished),
-            },
-        },
-        current.frame_fence,
-    );
+            try current.waitForFence(ctx);
+            try ctx.device.resetFences(1, @ptrCast(&current.frame_fence));
 
-    if (try self.ctx.device.queuePresentKHR(
-        self.surface.present_queue.handle,
-        &.{
-            .wait_semaphore_count = 1,
-            .p_wait_semaphores = @ptrCast(&current.render_finished),
-            .swapchain_count = 1,
-            .p_swapchains = @ptrCast(&self.handle),
-            .p_image_indices = @ptrCast(&self.image_index),
-        },
-    ) != .success) {
-        return Errors.QueuePresentFailed;
+            const wait_stage = [_]vk.PipelineStageFlags{
+                .{ .top_of_pipe_bit = true },
+            };
+            try ctx.device.queueSubmit(
+                sf.graphics_queue.handle,
+                1,
+                &[_]vk.SubmitInfo{
+                    .{
+                        .wait_semaphore_count = 1,
+                        .p_wait_semaphores = @ptrCast(&current.image_acquired),
+                        .p_wait_dst_stage_mask = &wait_stage,
+                        .command_buffer_count = 0,
+                        .p_command_buffers = null,
+                        .signal_semaphore_count = 1,
+                        .p_signal_semaphores = @ptrCast(&current.render_finished),
+                    },
+                },
+                current.frame_fence,
+            );
+
+            if (try ctx.device.queuePresentKHR(
+                sf.present_queue.handle,
+                &.{
+                    .wait_semaphore_count = 1,
+                    .p_wait_semaphores = @ptrCast(&current.render_finished),
+                    .swapchain_count = 1,
+                    .p_swapchains = @ptrCast(&self.handle),
+                    .p_image_indices = @ptrCast(&self.image_index),
+                },
+            ) != .success) {
+                return Errors.QueuePresentFailed;
+            }
+
+            const result = try ctx.device.acquireNextImageKHR(
+                self.handle,
+                std.math.maxInt(u64),
+                self.next_image,
+                .null_handle,
+            );
+
+            std.mem.swap(
+                vk.Semaphore,
+                &self.swap_images[result.image_index].image_acquired,
+                &self.next_image,
+            );
+            self.image_index = result.image_index;
+
+            return switch (result.result) {
+                .success => .optimal,
+                .suboptimal_khr => .suboptimal,
+                else => unreachable,
+            };
+        }
+        return Errors.NoSurface;
     }
 
-    const result = try self.ctx.device.acquireNextImageKHR(
-        self.handle,
-        std.math.maxInt(u64),
-        self.next_image,
-        .null_handle,
-    );
-
-    std.mem.swap(
-        vk.Semaphore,
-        &self.swap_images[result.image_index].image_acquired,
-        &self.next_image,
-    );
-    self.image_index = result.image_index;
-
-    return switch (result.result) {
-        .success => .optimal,
-        .suboptimal_khr => .suboptimal,
-        else => unreachable,
-    };
+    return Errors.NoContext;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 const SwapImage = struct {
     image: vk.Image,
     view: vk.ImageView,
@@ -337,7 +341,6 @@ const SwapImage = struct {
     render_finished: vk.Semaphore,
     frame_fence: vk.Fence,
 
-    ///////////////////////////////////////////////////////////////////////////
     fn init(ctx: *const Context, image: vk.Image, format: vk.Format) !@This() {
         const view = try ctx.device.createImageView(
             &.{
@@ -398,7 +401,6 @@ const SwapImage = struct {
         };
     }
 
-    ///////////////////////////////////////////////////////////////////////////
     fn deinit(self: @This(), ctx: *const Context) void {
         self.waitForFence(ctx) catch return;
         ctx.device.destroyImageView(self.view, null);
@@ -407,7 +409,6 @@ const SwapImage = struct {
         ctx.device.destroyFence(self.frame_fence, null);
     }
 
-    ///////////////////////////////////////////////////////////////////////////
     fn waitForFence(self: @This(), ctx: *const Context) !void {
         if (try ctx.device.waitForFences(
             1,
@@ -420,13 +421,8 @@ const SwapImage = struct {
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////
 ///
-fn initSwapchainImages(
-    ctx: *const Context,
-    swapchain: vk.SwapchainKHR,
-    format: vk.Format,
-) ![]SwapImage {
+fn initSwapchainImages(ctx: *const Context, swapchain: vk.SwapchainKHR, format: vk.Format) ![]SwapImage {
     const images = try ctx.device.getSwapchainImagesAllocKHR(
         swapchain,
         ctx.allocator,

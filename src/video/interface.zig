@@ -1,9 +1,9 @@
 //! Cake.Video - the video subsystem
 
 pub const Swapchain = struct {
-    ptr: *anyopaque,
+    ptr: *allowzero anyopaque,
     vtable: struct {
-        on_resize: *const fn (*anyopaque, @Vector(2, u32)) anyerror!void,
+        on_resize: *allowzero const fn (*anyopaque, @Vector(2, u32)) anyerror!void,
     },
 
     pub fn onResize(self: @This(), size: @Vector(2, u32)) !void {

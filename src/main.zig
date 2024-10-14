@@ -33,7 +33,6 @@ pub fn main() !void {
 
     while (!app.exitRequested()) {
         try app.tick();
-        try cake.tick();
     }
 }
 

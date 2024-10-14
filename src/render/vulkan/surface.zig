@@ -9,22 +9,21 @@ const Context = @import("context.zig");
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan.surface");
 
-ctx: *Context,
-handle: vk.SurfaceKHR,
-video_surface: interface.Surface,
-graphics_queue: Queue,
-present_queue: Queue,
+ctx: ?*Context = null,
+handle: vk.SurfaceKHR = .null_handle,
+video_surface: interface.Surface = std.mem.zeroInit(interface.Surface, .{}),
+graphics_queue: Queue = .{},
+present_queue: Queue = .{},
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize a surface
+/// Initialize a surface
 /// @param ctx
 /// @param surface
 /// @return a new surface
 pub fn init(ctx: *Context, surface: interface.Surface) !Self {
     const handle = try ctx.instance.createWaylandSurfaceKHR(
         &.{
-            .display = @ptrCast(@alignCast(ctx.video.getOsDisplay())),
-            .surface = @ptrCast(@alignCast(surface.getOsSurface())),
+            .display = @ptrCast(@alignCast(try ctx.video.getOsDisplay())),
+            .surface = @ptrCast(@alignCast(try surface.getOsSurface())),
         },
         null,
     );
@@ -35,22 +34,31 @@ pub fn init(ctx: *Context, surface: interface.Surface) !Self {
         .ctx = ctx,
         .handle = handle,
         .video_surface = surface,
-        .graphics_queue = Queue.init(ctx.device, ctx.queues.graphics_family),
-        .present_queue = Queue.init(ctx.device, ctx.queues.present_family),
+        .graphics_queue = Queue.init(
+            ctx.device,
+            ctx.queues.graphics_family,
+        ),
+        .present_queue = Queue.init(
+            ctx.device,
+            ctx.queues.present_family,
+        ),
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
 pub fn deinit(self: *Self) void {
-    self.ctx.instance.destroySurfaceKHR(self.handle, null);
+    if (self.ctx) |ctx| {
+        ctx.instance.destroySurfaceKHR(
+            self.handle,
+            null,
+        );
+    }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// a wrapper around a vkQueue
 const Queue = struct {
-    handle: vk.Queue,
-    family: u32,
+    handle: vk.Queue = .null_handle,
+    family: u32 = std.math.maxInt(u32),
 
     fn init(device: types.Device, family: u32) Queue {
         return .{

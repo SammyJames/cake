@@ -46,17 +46,11 @@ props: vk.PhysicalDeviceProperties,
 mem_props: vk.PhysicalDeviceMemoryProperties,
 queues: QueueAllocation,
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize the vulkan context
+/// Initialize the vulkan context
 /// @param allocator the allocator interface to use
 /// @param app_id the application identifier
 /// @param udata usually the display
-pub fn init(
-    self: *Self,
-    allocator: std.mem.Allocator,
-    app_id: [:0]const u8,
-    video: interface.Video,
-) !void {
+pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8, video: interface.Video) !void {
     self.allocator = allocator;
     self.app_id = app_id;
     self.video = video;
@@ -119,7 +113,6 @@ pub fn init(
     errdefer self.device.destroyDevice(null);
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// deinit
 pub fn deinit(self: *Self) void {
     self.device.destroyDevice(null);
@@ -129,8 +122,7 @@ pub fn deinit(self: *Self) void {
     self.allocator.destroy(self.instance.wrapper);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// init the device candidate
+/// Init the device candidate
 /// @param candidate
 /// @return a device
 fn initCandidate(self: *Self, candidate: DeviceCandidate) !vk.Device {
@@ -165,8 +157,7 @@ fn initCandidate(self: *Self, candidate: DeviceCandidate) !vk.Device {
     );
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// loads the vulkan shared lib
+/// Loads the vulkan shared lib
 fn loadVulkan() void {
     // todo(sjames) - make platform agnostic
     vulkan_lib = std.DynLib.open("libvulkan.so") catch |err| {
@@ -177,15 +168,13 @@ fn loadVulkan() void {
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// pick a physical device to use, assumes no surfaces exist yet
+/// Pick a physical device to use, assumes no surfaces exist yet
 /// @param udata usually the display on wayland
 /// @return a device candidate
-fn pickPhysicalDevice(
-    self: *Self,
-    video: interface.Video,
-) !DeviceCandidate {
-    const pdevs = try self.instance.enumeratePhysicalDevicesAlloc(self.allocator);
+fn pickPhysicalDevice(self: *Self, video: interface.Video) !DeviceCandidate {
+    const pdevs = try self.instance.enumeratePhysicalDevicesAlloc(
+        self.allocator,
+    );
     defer self.allocator.free(pdevs);
 
     for (pdevs) |pdev| {
@@ -230,7 +219,7 @@ fn pickPhysicalDevice(
                 if (present_family == null and self.instance.getPhysicalDeviceWaylandPresentationSupportKHR(
                     pdev,
                     family,
-                    @ptrCast(@alignCast(video.getOsDisplay())),
+                    @ptrCast(@alignCast(try video.getOsDisplay())),
                 ) == vk.TRUE) {
                     present_family = family;
                 }

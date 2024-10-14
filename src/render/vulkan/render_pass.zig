@@ -9,11 +9,13 @@ const Swapchain = @import("swapchain.zig");
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan.render_pass");
 
-ctx: *Context,
-handle: vk.RenderPass,
+ctx: ?*Context = null,
+handle: vk.RenderPass = .null_handle,
 
-///////////////////////////////////////////////////////////////////////////////
-///
+/// initialize a render pass for a swapchain
+/// @param ctx the context
+/// @param swapchain the swapchain that owns this render pass
+/// @return a new render pass
 pub fn init(ctx: *Context, swapchain: *Swapchain) !Self {
     const rp = try ctx.device.createRenderPass(
         &.{
@@ -57,12 +59,13 @@ pub fn init(ctx: *Context, swapchain: *Swapchain) !Self {
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
 pub fn deinit(self: *Self) void {
-    self.ctx.device.destroyRenderPass(
-        self.handle,
-        null,
-    );
+    if (self.ctx) |ctx| {
+        ctx.device.destroyRenderPass(
+            self.handle,
+            null,
+        );
+    }
     self.handle = .null_handle;
 }

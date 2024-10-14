@@ -8,11 +8,14 @@ const Context = @import("context.zig");
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan.command_buffer");
 
-ctx: *Context,
-handle: vk.CommandBuffer,
+ctx: ?*Context = null,
+handle: vk.CommandBuffer = .null_handle,
 
 pub fn init(ctx: *Context) !Self {
-    _ = ctx; // autofix
+    return .{
+        .ctx = ctx,
+        .handle = .null_handle,
+    };
 }
 
 pub fn deinit(self: *Self) void {

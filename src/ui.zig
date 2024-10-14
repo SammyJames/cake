@@ -23,9 +23,17 @@ pub fn deinit(self: *Self) void {
 }
 
 pub fn beginFrame(self: Self) void {
-    _ = self; // autofix
+    cake_render.begin(self.render_pass) catch |err| {
+        Log.err("failed to begin {s}", .{
+            @errorName(err),
+        });
+    };
 }
 
 pub fn endFrame(self: Self) void {
-    _ = self; // autofix
+    cake_render.end(self.render_pass) catch |err| {
+        Log.err("failed to end {s}", .{
+            @errorName(err),
+        });
+    };
 }

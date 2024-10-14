@@ -24,8 +24,7 @@ render: struct {
 on_tick: ?TickInterface,
 ui_state: Ui,
 
-///////////////////////////////////////////////////////////////////////////////
-/// create a window
+/// Create a window
 /// @param title the title of the window
 /// @param size the size of the window
 /// @return a new window
@@ -42,7 +41,7 @@ pub fn init(
         @panic("failed to destroy surface");
 
     const Anon = struct {
-        fn getOsSurface(ctx: *anyopaque) *anyopaque {
+        fn getOsSurface(ctx: *anyopaque) !*anyopaque {
             const surf: *cake_video.Surface = @ptrCast(@alignCast(ctx));
             return surf.surface;
         }
@@ -98,8 +97,7 @@ pub fn init(
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// destroy a window
+/// Destroy a window
 pub fn deinit(self: *Self) void {
     self.ui_state.deinit();
     cake_render.destroySwapchain(self.render.swapchain) catch |err| {
@@ -121,15 +119,13 @@ pub fn deinit(self: *Self) void {
     };
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// determine if the window should close
+/// Determine if the window should close
 /// @return true if the window wants to close
 pub fn closeRequested(self: Self) bool {
     return self.video.surface.close_requested;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// tick the window
+/// Tick the window
 pub fn tick(self: Self) !void {
     self.ui_state.beginFrame();
 
@@ -140,8 +136,7 @@ pub fn tick(self: Self) !void {
     self.ui_state.endFrame();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// used to abstract ticking
+/// Used to abstract ticking
 pub const TickInterface = struct {
     ptr: *anyopaque,
     vtable: struct {
@@ -157,15 +152,13 @@ pub const TickInterface = struct {
     }
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/// update this window's title
+/// Update this window's title
 /// @param title the title to use
 pub fn setTitle(self: Self, title: [:0]const u8) void {
     self.video.surface.setTitle(title);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// update this window's size
+/// Update this window's size
 /// @param size the size
 pub fn setSize(self: Self, size: @Vector(2, u32)) void {
     self.video.surface.setSize(size);

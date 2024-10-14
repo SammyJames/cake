@@ -30,18 +30,12 @@ state: enum {
     configured,
 },
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize a surface, expects the memory for this surface to have been
+/// Initialize a surface, expects the memory for this surface to have been
 /// allocated prior to calling init
 /// @param ctx the wayland video context
 /// @param title the title of the surface
 /// @param size the dimensions of the surface
-pub fn init(
-    self: *Self,
-    ctx: *const Context,
-    title: [:0]const u8,
-    size: @Vector(2, u32),
-) !void {
+pub fn init(self: *Self, ctx: *const Context, title: [:0]const u8, size: @Vector(2, u32)) !void {
     self.ctx = ctx;
     self.size = size;
     self.close_requested = false;
@@ -91,7 +85,6 @@ pub fn init(
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 pub fn deinit(self: *Self) void {
     self.surface.destroy();
     self.xdg_surface.destroy();
@@ -99,15 +92,13 @@ pub fn deinit(self: *Self) void {
     self.decoration.destroy();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// set the title
+/// Set the title
 /// @param title the title
 pub fn setTitle(self: *Self, title: [:0]const u8) void {
     self.top_level.setTitle(title.ptr);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// set the size of the surface
+/// Set the size of the surface
 /// @param size
 pub fn setSize(self: *Self, size: @Vector(2, u32)) void {
     self.xdg_surface.setWindowGeometry(
@@ -118,14 +109,12 @@ pub fn setSize(self: *Self, size: @Vector(2, u32)) void {
     );
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// set the app id
+/// Set the app id
 /// @param app_id the application identifier
 fn setAppId(self: *Self, app_id: [:0]const u8) void {
     self.top_level.setAppId(app_id.ptr);
 }
 
-///////////////////////////////////////////////////////////////////////////////
 fn updateOpaqueArea(self: *Self) !void {
     var region = try self.ctx.compositor.createRegion();
     defer region.destroy();
@@ -139,12 +128,7 @@ fn updateOpaqueArea(self: *Self) !void {
     self.surface.setOpaqueRegion(region);
 }
 
-///////////////////////////////////////////////////////////////////////////////
-fn xdgSurfaceListener(
-    surface: *xdg.Surface,
-    event: xdg.Surface.Event,
-    self: *Self,
-) void {
+fn xdgSurfaceListener(surface: *xdg.Surface, event: xdg.Surface.Event, self: *Self) void {
     switch (event) {
         .configure => |c| {
             surface.ackConfigure(c.serial);
@@ -157,12 +141,7 @@ fn xdgSurfaceListener(
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-fn topLevelListener(
-    _: *xdg.Toplevel,
-    event: xdg.Toplevel.Event,
-    self: *Self,
-) void {
+fn topLevelListener(_: *xdg.Toplevel, event: xdg.Toplevel.Event, self: *Self) void {
     switch (event) {
         .configure => |c| {
             const w: u32 = @intCast(c.width);
@@ -178,22 +157,39 @@ fn topLevelListener(
 
             self.size = @Vector(2, u32){ w, h };
 
-            Log.debug("{p} configure {}", .{ self.surface, self.size });
+            Log.debug("{p} configure {}", .{
+                self.surface,
+                self.size,
+            });
 
             if (self.swapchain) |*sc| {
                 sc.onResize(self.size) catch |err| {
-                    Log.err("failed to resize swapchain: {s}", .{@errorName(err)});
+                    Log.err("failed to resize swapchain: {s}", .{
+                        @errorName(err),
+                    });
                 };
             }
 
             self.updateOpaqueArea() catch |err| {
-                Log.err("failed to update opaque area {s}", .{@errorName(err)});
+                Log.err("failed to update opaque area {s}", .{
+                    @errorName(err),
+                });
             };
 
             self.surface.commit();
         },
-        .configure_bounds => |_| {},
-        .wm_capabilities => |_| {},
+        .configure_bounds => |b| {
+            Log.debug("{p} configure bounds {} {}", .{
+                self.surface,
+                b.width,
+                b.height,
+            });
+        },
+        .wm_capabilities => |c| {
+            for (0..c.capabilities.size) |i| {
+                _ = i;
+            }
+        },
         .close => {
             self.close_requested = true;
         },

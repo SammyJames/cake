@@ -20,12 +20,11 @@ pub const Options = struct {
     app_id: [:0]const u8 = "cake",
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize cake
+/// Initialize cake
 /// @param options the options touse for initialization
 pub fn init(options: Options) !void {
     const Anon = struct {
-        fn getOsDisplay(ctx: *anyopaque) *anyopaque {
+        fn getOsDisplay(ctx: *anyopaque) !*anyopaque {
             return ctx;
         }
     };
@@ -47,15 +46,13 @@ pub fn init(options: Options) !void {
     });
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// deinit cake
+/// Deinit cake
 pub fn deinit() void {
     cake_render.deinit();
     cake_video.deinit();
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// tick cake
+/// Tick cake
 pub fn tick() !void {
     try cake_video.tick();
     try cake_render.tick();

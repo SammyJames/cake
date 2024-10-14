@@ -55,8 +55,7 @@ pub const Options = struct {
     video: VideoInterface,
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/// initialize the renderer
+/// Initialize the renderer
 /// @param options the options to use for the render subsystem
 pub fn init(options: Options) !void {
     swapchains = std.ArrayList(*Swapchain).init(options.allocator);
@@ -72,7 +71,6 @@ pub fn init(options: Options) !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// deinit
 pub fn deinit() void {
     if (swapchains) |*sc| sc.deinit();
@@ -82,7 +80,6 @@ pub fn deinit() void {
     context = null;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// tick the renderer
 pub fn tick() !void {
     if (swapchains) |*chains| {
@@ -97,8 +94,7 @@ pub fn tick() !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// create a surface
+/// Create a surface
 /// @param surface
 /// @return a new surface
 pub fn createSurface(surface: SurfaceInterface) !*Surface {
@@ -119,7 +115,6 @@ pub fn createSurface(surface: SurfaceInterface) !*Surface {
     return Errors.NoContext;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 /// destroy a surface
 /// @param surface
 pub fn destroySurface(surface: *Surface) !void {
@@ -145,8 +140,7 @@ pub fn destroySurface(surface: *Surface) !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// create a swapchain for a surface
+/// Create a swapchain for a surface
 /// @param surface
 /// @return a new swapchain
 pub fn createSwapchain(surface: *Surface) !*Swapchain {
@@ -167,8 +161,7 @@ pub fn createSwapchain(surface: *Surface) !*Swapchain {
     return Errors.NoContext;
 }
 
-///////////////////////////////////////////////////////////////////////////////
-/// destroy a swapchain
+/// Destroy a swapchain
 /// @param swapchain
 pub fn destroySwapchain(swapchain: *Swapchain) !void {
     if (swapchains) |*s| {
@@ -193,7 +186,6 @@ pub fn destroySwapchain(swapchain: *Swapchain) !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
 pub fn createPass(swapchain: *Swapchain) !Pass {
     if (context) |*ctx| {
@@ -203,15 +195,14 @@ pub fn createPass(swapchain: *Swapchain) !Pass {
     return Errors.NoContext;
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
 pub fn destroyPass(render_pass: *Pass) void {
     render_pass.deinit();
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
-pub fn begin() !void {
+pub fn begin(render_pass: Pass) !void {
+    _ = render_pass;
     if (context) |*ctx| {
         try ctx.begin();
     } else {
@@ -219,9 +210,9 @@ pub fn begin() !void {
     }
 }
 
-///////////////////////////////////////////////////////////////////////////////
 ///
-pub fn end() !void {
+pub fn end(render_pass: Pass) !void {
+    _ = render_pass;
     if (context) |*ctx| {
         ctx.end();
     } else {
