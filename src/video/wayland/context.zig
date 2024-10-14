@@ -25,6 +25,11 @@ xdg_wm_base: *xdg.WmBase,
 zxdg_decoration_man: *zxdg.DecorationManagerV1,
 seat: *wl.Seat,
 
+input: struct {
+    pointer: *wl.Pointer,
+    keyboard: *wl.Keyboard,
+},
+
 state: enum {
     invalid,
     waiting_on_capabilities,
@@ -223,7 +228,7 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Sel
     }
 }
 
-fn seatListener(_: *wl.Seat, event: wl.Seat.Event, self: *Self) void {
+fn seatListener(seat: *wl.Seat, event: wl.Seat.Event, self: *Self) void {
     switch (event) {
         .capabilities => |c| {
             Log.debug("seat capabilities\n\tPointer {}\n\tKeyboard {}\n\tTouch {}\n", .{
@@ -231,6 +236,21 @@ fn seatListener(_: *wl.Seat, event: wl.Seat.Event, self: *Self) void {
                 c.capabilities.keyboard,
                 c.capabilities.touch,
             });
+
+            self.input.pointer = seat.getPointer() catch |err| {
+                std.debug.panic("failed to get pointer {s}", .{
+                    @errorName(err),
+                });
+            };
+            self.input.pointer.setListener(*Self, pointerListener, self);
+
+            self.input.keyboard = seat.getKeyboard() catch |err| {
+                std.debug.panic("failed to get keyboard {s}", .{
+                    @errorName(err),
+                });
+            };
+            self.input.keyboard.setListener(*Self, keyboardListener, self);
+
             self.state = .capabilities_found;
         },
         .name => |_| {},
@@ -245,5 +265,43 @@ fn xdgWmBaseListener(wm_base: *xdg.WmBase, event: xdg.WmBase.Event, _: *Self) vo
             });
             wm_base.pong(s.serial);
         },
+    }
+}
+
+fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void {
+    _ = ptr;
+    _ = self;
+    switch (event) {
+        .axis => {},
+        .axis_discrete => {},
+        .axis_relative_direction => {},
+        .axis_source => {},
+        .axis_stop => {},
+        .axis_value120 => {},
+        .button => {},
+        .enter => {},
+        .frame => {},
+        .leave => {},
+        .motion => |m| {
+            _ = m;
+        },
+    }
+}
+
+fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) void {
+    _ = kbd;
+    _ = self;
+    switch (event) {
+        .enter => {},
+        .key => |k| {
+            Log.debug("key: {} is {}", .{
+                k.key,
+                k.state,
+            });
+        },
+        .keymap => {},
+        .leave => {},
+        .modifiers => {},
+        .repeat_info => {},
     }
 }
