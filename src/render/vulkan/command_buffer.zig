@@ -1,4 +1,4 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 const std = @import("std");
 const vk = @import("vulkan");
@@ -16,5 +16,5 @@ pub fn init(ctx: *Context) !Self {
 }
 
 pub fn deinit(self: *Self) void {
-	self.ctx.device.
+    _ = self;
 }

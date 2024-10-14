@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 pub const Swapchain = struct {
     ptr: *anyopaque,

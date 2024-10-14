@@ -12,13 +12,15 @@ allocator: std.mem.Allocator,
 windows: std.ArrayList(*Window),
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// Initialize a cake application
+/// @param allocator the allocator interface for cake to use
+/// @return a new cake application
 pub fn init(allocator: std.mem.Allocator) !Self {
     try cake.init(.{
         .allocator = allocator,
         .app_id = "bakery",
     });
-    defer cake.deinit();
+    errdefer cake.deinit();
 
     return .{
         .allocator = allocator,
@@ -30,6 +32,8 @@ pub fn init(allocator: std.mem.Allocator) !Self {
 ///
 pub fn deinit(self: *Self) void {
     self.windows.deinit();
+
+    cake.deinit();
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,13 +45,22 @@ pub fn tick(self: *Self) !void {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// determine if the application should exit, by default this checks all
+/// windows to determine if they want to close
 pub fn exitRequested(self: *const Self) bool {
-    _ = self; // autofix
-    return false;
+    var result = true;
+    for (self.windows.items) |w| {
+        result = result and w.closeRequested();
+    }
+
+    return result;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// create a window
+/// @param title the title of the application
+/// @param size the dimensions of the window being created
+/// @return a new window
 pub fn createWindow(
     self: *Self,
     title: [:0]const u8,
@@ -57,7 +70,7 @@ pub fn createWindow(
     errdefer self.allocator.destroy(window);
 
     Log.info(
-        "creating a new window named {s} w/ dimensions {}",
+        "Creating a new window named {s} w/ dimensions {}",
         .{ title, size },
     );
 
@@ -73,9 +86,15 @@ pub fn createWindow(
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-///
+/// destroy a window
+/// @param window the window to destroy
 pub fn destroyWindow(self: *Self, window: *Window) void {
-    const idx = std.mem.indexOfScalar(*Window, self.windows.items, window);
+    const idx = std.mem.indexOfScalar(
+        *Window,
+        self.windows.items,
+        window,
+    );
+
     if (idx) |i| {
         _ = self.windows.swapRemove(i);
     }

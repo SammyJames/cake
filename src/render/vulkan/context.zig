@@ -1,4 +1,4 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 const std = @import("std");
 const vk = @import("vulkan");
@@ -254,7 +254,6 @@ fn pickPhysicalDevice(
 
 pub fn begin(self: *Self) !void {
     _ = self; // autofix
-
 }
 
 pub fn end(self: *Self) void {

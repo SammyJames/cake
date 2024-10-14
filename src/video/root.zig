@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 const std = @import("std");
 const build_options = @import("build_options");
@@ -60,6 +60,7 @@ pub fn createSurface(
 ) !*Surface {
     const surf = try context.allocator.create(Surface);
     errdefer context.allocator.destroy(surf);
+
     try surf.init(&context, title, size);
 
     try surfaces.append(surf);

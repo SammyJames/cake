@@ -1,9 +1,11 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 ///////////////////////////////////////////////////////////////////////////////
 /// used to abstract away the underlying video surface implementation within
 /// the renderer
 pub const Surface = struct {
+    const Self = @This();
+
     ptr: *anyopaque,
     vtable: struct {
         get_os_surface: *const fn (ctx: *anyopaque) *anyopaque,
@@ -13,7 +15,7 @@ pub const Surface = struct {
     ///////////////////////////////////////////////////////////////////////////
     /// get the operating system surface
     /// @return an opaque pointer to the surface
-    pub fn getOsSurface(self: @This()) *anyopaque {
+    pub fn getOsSurface(self: Self) *anyopaque {
         return @call(
             .auto,
             self.vtable.get_os_surface,
@@ -24,7 +26,7 @@ pub const Surface = struct {
     ///////////////////////////////////////////////////////////////////////////
     /// get the size of the operating system surface
     /// @return a vec2
-    pub fn getSize(self: @This()) @Vector(2, u32) {
+    pub fn getSize(self: Self) @Vector(2, u32) {
         return @call(
             .auto,
             self.vtable.get_size,
@@ -37,6 +39,8 @@ pub const Surface = struct {
 /// used to abstract away the underlying video implementation within the
 /// renderer
 pub const Video = struct {
+    const Self = @This();
+
     ptr: *anyopaque,
     vtable: struct {
         get_os_display: *const fn (ctx: *anyopaque) *anyopaque,
@@ -45,7 +49,7 @@ pub const Video = struct {
     ///////////////////////////////////////////////////////////////////////////
     /// get the os display
     /// @return an opaque pointer to the display
-    pub fn getOsDisplay(self: @This()) *anyopaque {
+    pub fn getOsDisplay(self: Self) *anyopaque {
         return @call(
             .auto,
             self.vtable.get_os_display,

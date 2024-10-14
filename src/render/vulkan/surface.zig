@@ -1,4 +1,4 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 const std = @import("std");
 const vk = @import("vulkan");
@@ -8,18 +8,6 @@ const Context = @import("context.zig");
 
 const Self = @This();
 const Log = std.log.scoped(.@"cake.render.vulkan.surface");
-
-const Queue = struct {
-    handle: vk.Queue,
-    family: u32,
-
-    fn init(device: types.Device, family: u32) Queue {
-        return .{
-            .handle = device.getDeviceQueue(family, 0),
-            .family = family,
-        };
-    }
-};
 
 ctx: *Context,
 handle: vk.SurfaceKHR,
@@ -57,3 +45,20 @@ pub fn init(ctx: *Context, surface: interface.Surface) !Self {
 pub fn deinit(self: *Self) void {
     self.ctx.instance.destroySurfaceKHR(self.handle, null);
 }
+
+///////////////////////////////////////////////////////////////////////////////
+/// a wrapper around a vkQueue
+const Queue = struct {
+    handle: vk.Queue,
+    family: u32,
+
+    fn init(device: types.Device, family: u32) Queue {
+        return .{
+            .handle = device.getDeviceQueue(
+                family,
+                0,
+            ),
+            .family = family,
+        };
+    }
+};

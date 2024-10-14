@@ -1,5 +1,4 @@
-//! Cake.Video
-
+//! Cake.Video - the video subsystem
 const std = @import("std");
 const wayland = @import("wayland");
 const Surface = @import("surface.zig");
@@ -36,7 +35,11 @@ state: enum {
 /// initialize the wayland video context
 /// @param allocator the allocator interface to use
 /// @param app_id the application identifier
-pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !void {
+pub fn init(
+    self: *Self,
+    allocator: std.mem.Allocator,
+    app_id: [:0]const u8,
+) !void {
     self.allocator = allocator;
     self.app_id = app_id;
 
@@ -71,6 +74,7 @@ pub fn deinit(self: *Self) void {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
+/// get the display
 pub fn renderData(self: *Self) *anyopaque {
     return self.display;
 }
@@ -134,13 +138,19 @@ fn registryListener(
     const Handlers = struct {
         fn handleCompositor(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.compositor = r.bind(name, wl.Compositor, ver) catch |err| {
-                std.debug.panic("failed to bind compositor interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind compositor interface {s}",
+                    .{@errorName(err)},
+                );
             };
         }
 
         fn handleSeat(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.seat = r.bind(name, wl.Seat, ver) catch |err| {
-                std.debug.panic("failed to bind seat interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind seat interface {s}",
+                    .{@errorName(err)},
+                );
             };
 
             s.seat.setListener(*Self, seatListener, s);
@@ -148,30 +158,45 @@ fn registryListener(
 
         fn handleShm(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.shm = r.bind(name, wl.Shm, ver) catch |err| {
-                std.debug.panic("failed to bind shm interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind shm interface {s}",
+                    .{@errorName(err)},
+                );
             };
         }
 
         fn handleOutput(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             const output = r.bind(name, wl.Output, ver) catch |err| {
-                std.debug.panic("failed to bind output interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind output interface {s}",
+                    .{@errorName(err)},
+                );
             };
 
             s.outputs.append(output) catch |err| {
-                std.debug.panic("failed to append to output list {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to append to output list {s}",
+                    .{@errorName(err)},
+                );
             };
         }
 
         fn handleWmBase(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.xdg_wm_base = r.bind(name, xdg.WmBase, ver) catch |err| {
-                std.debug.panic("failed to bind wmbase interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind wmbase interface {s}",
+                    .{@errorName(err)},
+                );
             };
             s.xdg_wm_base.setListener(*Self, xdgWmBaseListener, s);
         }
 
         fn handleDecorationMan(s: *Self, r: *wl.Registry, name: u32, ver: u32) void {
             s.zxdg_decoration_man = r.bind(name, zxdg.DecorationManagerV1, ver) catch |err| {
-                std.debug.panic("failed to bind decoration man interface {s}", .{@errorName(err)});
+                std.debug.panic(
+                    "failed to bind decoration man interface {s}",
+                    .{@errorName(err)},
+                );
             };
         }
     };
@@ -181,48 +206,34 @@ fn registryListener(
         version: u32,
     };
     const handlers = std.StaticStringMap(Handler).initComptime(.{
-        .{
-            "wl_compositor",
-            .{ .func = Handlers.handleCompositor, .version = 6 },
-        },
-        .{
-            "wl_shm",
-            .{ .func = Handlers.handleShm, .version = 2 },
-        },
-        .{
-            "wl_seat",
-            .{ .func = Handlers.handleSeat, .version = 9 },
-        },
-        .{
-            "wl_output",
-            .{ .func = Handlers.handleOutput, .version = 4 },
-        },
-        .{
-            "xdg_wm_base",
-            .{ .func = Handlers.handleWmBase, .version = 6 },
-        },
-        .{
-            "zxdg_decoration_manager_v1",
-            .{ .func = Handlers.handleDecorationMan, .version = 1 },
-        },
+        .{ "wl_compositor", .{ .func = Handlers.handleCompositor, .version = 6 } },
+        .{ "wl_shm", .{ .func = Handlers.handleShm, .version = 2 } },
+        .{ "wl_seat", .{ .func = Handlers.handleSeat, .version = 9 } },
+        .{ "wl_output", .{ .func = Handlers.handleOutput, .version = 4 } },
+        .{ "xdg_wm_base", .{ .func = Handlers.handleWmBase, .version = 6 } },
+        .{ "zxdg_decoration_manager_v1", .{ .func = Handlers.handleDecorationMan, .version = 1 } },
     });
 
     switch (event) {
-        .global => |global| {
-            if (handlers.get(std.mem.span(global.interface))) |handler| {
-                Log.debug(
-                    "Binding {s} @ v{}",
-                    .{ global.interface, handler.version },
-                );
+        .global => |g| {
+            if (handlers.get(std.mem.span(g.interface))) |h| {
+                Log.debug("Binding {s} @ v{}", .{
+                    g.interface,
+                    h.version,
+                });
 
                 @call(
                     .auto,
-                    handler.func,
-                    .{ self, registry, global.name, handler.version },
+                    h.func,
+                    .{ self, registry, g.name, h.version },
                 );
             }
         },
-        .global_remove => {},
+        .global_remove => |g| {
+            Log.debug("removing {}", .{
+                g.name,
+            });
+        },
     }
 }
 
@@ -233,17 +244,15 @@ fn seatListener(
     self: *Self,
 ) void {
     switch (event) {
-        .capabilities => |caps| {
-            Log.debug(
-                "seat capabilities\n\tPointer {}\n\tKeyboard {}\n\tTouch {}\n",
-                .{
-                    caps.capabilities.pointer,
-                    caps.capabilities.keyboard,
-                    caps.capabilities.touch,
-                },
-            );
+        .capabilities => |c| {
+            Log.debug("seat capabilities\n\tPointer {}\n\tKeyboard {}\n\tTouch {}\n", .{
+                c.capabilities.pointer,
+                c.capabilities.keyboard,
+                c.capabilities.touch,
+            });
             self.state = .capabilities_found;
         },
+        .name => |_| {},
     }
 }
 
@@ -255,7 +264,9 @@ fn xdgWmBaseListener(
 ) void {
     switch (event) {
         .ping => |s| {
-            Log.debug("wm ping {} => pong", .{s.serial});
+            Log.debug("wm ping {} => pong", .{
+                s.serial,
+            });
             wm_base.pong(s.serial);
         },
     }

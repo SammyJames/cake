@@ -1,4 +1,4 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 const vk = @import("vulkan");
 

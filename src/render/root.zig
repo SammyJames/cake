@@ -1,4 +1,4 @@
-//! Cake.Render
+//! Cake.Render - the render subsystem
 
 const std = @import("std");
 const build_options = @import("build_options");
@@ -44,13 +44,17 @@ var swapchains: std.ArrayList(*Swapchain) = undefined;
 var surfaces: std.ArrayList(*Surface) = undefined;
 
 pub const Options = struct {
+    /// the allocator interface to use for the renderer
     allocator: std.mem.Allocator,
+    /// the application id string used to identify things
     app_id: [:0]const u8,
+    /// an interface to the video subsystem
     video: VideoInterface,
 };
 
 ///////////////////////////////////////////////////////////////////////////////
 /// initialize the renderer
+/// @param options the options to use for the render subsystem
 pub fn init(options: Options) !void {
     swapchains = std.ArrayList(*Swapchain).init(options.allocator);
     surfaces = std.ArrayList(*Surface).init(options.allocator);

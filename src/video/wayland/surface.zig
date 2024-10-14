@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 const std = @import("std");
 const wayland = @import("wayland");
@@ -192,6 +192,8 @@ fn topLevelListener(
 
             self.surface.commit();
         },
+        .configure_bounds => |_| {},
+        .wm_capabilities => |_| {},
         .close => {
             self.close_requested = true;
         },
