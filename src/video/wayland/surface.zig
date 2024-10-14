@@ -23,15 +23,14 @@ decoration: *zxdg.ToplevelDecorationV1,
 
 size: @Vector(2, u32),
 close_requested: bool,
-swapchain: ?interface.Swapchain,
+swapchain: interface.Swapchain = std.mem.zeroInit(interface.Swapchain, .{}),
 
 state: enum {
     waiting_for_configuration,
     configured,
 },
 
-/// Initialize a surface, expects the memory for this surface to have been
-/// allocated prior to calling init
+/// Initialize a surface, expects the memory for this surface to have been allocated prior to calling init
 /// @param ctx the wayland video context
 /// @param title the title of the surface
 /// @param size the dimensions of the surface
@@ -39,7 +38,6 @@ pub fn init(self: *Self, ctx: *const Context, title: [:0]const u8, size: @Vector
     self.ctx = ctx;
     self.size = size;
     self.close_requested = false;
-    self.swapchain = null;
     self.surface = try ctx.compositor.createSurface();
 
     self.xdg_surface = try ctx.xdg_wm_base.getXdgSurface(self.surface);
@@ -162,13 +160,11 @@ fn topLevelListener(_: *xdg.Toplevel, event: xdg.Toplevel.Event, self: *Self) vo
                 self.size,
             });
 
-            if (self.swapchain) |*sc| {
-                sc.onResize(self.size) catch |err| {
-                    Log.err("failed to resize swapchain: {s}", .{
-                        @errorName(err),
-                    });
-                };
-            }
+            self.swapchain.onResize(self.size) catch |err| {
+                Log.err("failed to resize swapchain: {s}", .{
+                    @errorName(err),
+                });
+            };
 
             self.updateOpaqueArea() catch |err| {
                 Log.err("failed to update opaque area {s}", .{
