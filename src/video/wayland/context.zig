@@ -436,8 +436,8 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         66 => .f8,
         67 => .f9,
         68 => .f10,
-        69 => .f11,
-        70 => .f12,
+        87 => .f11,
+        88 => .f12,
         else => null,
     };
 }
