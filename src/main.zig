@@ -19,6 +19,13 @@ pub fn main() !void {
     var app = try cake.App.init(alloc);
     defer app.deinit();
 
+    app.registerForInput(.{
+        .ptr = std.mem.zeroes(*allowzero anyopaque),
+        .vtable = .{
+            .on_input = handleInput,
+        },
+    });
+
     const w1 = try app.createWindow("Bakery", .{ 1920, 1080 });
     var main_window = MainWindow.init(w1);
     defer main_window.deinit(&app);
@@ -36,6 +43,23 @@ pub fn main() !void {
     while (!app.exitRequested()) {
         try app.tick();
     }
+}
+
+fn handleInput(_: *allowzero anyopaque, event: cake.InputEvent) !bool {
+    switch (event.event) {
+        .key => |k| {
+            Log.debug("key event {}", .{k,});
+        },
+        .mouse_button => |mb| {
+            Log.debug("mouse btn event {}", .{mb,});
+        },
+        .mouse_move => |mm| {
+            Log.debug("mouse move event {}", .{mm,});
+        },
+        else => {},
+    }
+
+    return false;
 }
 
 const MainWindow = struct {

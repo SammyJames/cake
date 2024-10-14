@@ -4,6 +4,8 @@ const std = @import("std");
 const build_options = @import("build_options");
 const interface = @import("interface.zig");
 
+pub const IntputEvent = @import("input_event.zig");
+
 pub const Errors = error{
     VideoInitializationFailed,
     NoContext,
@@ -23,9 +25,11 @@ pub const Surface = switch (build_options.VideoBackend) {
 };
 
 pub const SwapchainInterface = interface.Swapchain;
+pub const InputListener = interface.InputListener;
 
 var context: ?Context = null;
 var surfaces: ?std.ArrayList(*Surface) = null;
+var input_listeners: ?std.ArrayList(InputListener) = null;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
@@ -36,6 +40,7 @@ pub const Options = struct {
 /// @param options options to use for this module
 pub fn init(options: Options) !void {
     surfaces = std.ArrayList(*Surface).init(options.allocator);
+    input_listeners = std.ArrayList(InputListener).init(options.allocator);
 
     context = undefined;
     if (context) |*ctx| {
@@ -49,8 +54,15 @@ pub fn init(options: Options) !void {
 }
 
 pub fn deinit() void {
+    if (input_listeners) |*il| il.deinit();
     if (surfaces) |*s| s.deinit();
     if (context) |*ctx| ctx.deinit();
+}
+
+pub fn registerForInput(listener: InputListener) !void {
+    if (input_listeners) |*il| {
+        try il.append(listener);
+    }
 }
 
 pub fn renderData() *anyopaque {
@@ -109,6 +121,8 @@ pub fn destroySurface(surface: *Surface) !void {
 pub fn tick() !void {
     if (context) |*ctx| {
         try ctx.tick();
+
+        try ctx.dispatchInput(input_listeners.?.items);
     } else {
         return Errors.NoContext;
     }

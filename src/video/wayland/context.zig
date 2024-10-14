@@ -2,6 +2,8 @@
 const std = @import("std");
 const wayland = @import("wayland");
 const Surface = @import("surface.zig");
+const InputEvent = @import("../input_event.zig");
+const InputListener = @import("../interface.zig").InputListener;
 
 const wl = wayland.client.wl;
 const xdg = wayland.client.xdg;
@@ -28,6 +30,7 @@ seat: *wl.Seat,
 input: struct {
     pointer: *wl.Pointer,
     keyboard: *wl.Keyboard,
+    queue: std.fifo.LinearFifo(InputEvent, .Dynamic),
 },
 
 state: enum {
@@ -42,6 +45,8 @@ state: enum {
 pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !void {
     self.allocator = allocator;
     self.app_id = app_id;
+
+    self.input.queue = std.fifo.LinearFifo(InputEvent, .Dynamic).init(allocator);
 
     self.display = try wl.Display.connect(null);
     self.registry = try self.display.getRegistry();
@@ -60,6 +65,8 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
 }
 
 pub fn deinit(self: *Self) void {
+    self.input.queue.deinit();
+
     for (self.outputs.items) |o| o.destroy();
     self.outputs.deinit();
 
@@ -237,19 +244,23 @@ fn seatListener(seat: *wl.Seat, event: wl.Seat.Event, self: *Self) void {
                 c.capabilities.touch,
             });
 
-            self.input.pointer = seat.getPointer() catch |err| {
-                std.debug.panic("failed to get pointer {s}", .{
-                    @errorName(err),
-                });
-            };
-            self.input.pointer.setListener(*Self, pointerListener, self);
+            if (c.capabilities.pointer) {
+                self.input.pointer = seat.getPointer() catch |err| {
+                    std.debug.panic("failed to get pointer {s}", .{
+                        @errorName(err),
+                    });
+                };
+                self.input.pointer.setListener(*Self, pointerListener, self);
+            }
 
-            self.input.keyboard = seat.getKeyboard() catch |err| {
-                std.debug.panic("failed to get keyboard {s}", .{
-                    @errorName(err),
-                });
-            };
-            self.input.keyboard.setListener(*Self, keyboardListener, self);
+            if (c.capabilities.keyboard) {
+                self.input.keyboard = seat.getKeyboard() catch |err| {
+                    std.debug.panic("failed to get keyboard {s}", .{
+                        @errorName(err),
+                    });
+                };
+                self.input.keyboard.setListener(*Self, keyboardListener, self);
+            }
 
             self.state = .capabilities_found;
         },
@@ -270,7 +281,6 @@ fn xdgWmBaseListener(wm_base: *xdg.WmBase, event: xdg.WmBase.Event, _: *Self) vo
 
 fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void {
     _ = ptr;
-    _ = self;
     switch (event) {
         .axis => {},
         .axis_discrete => {},
@@ -278,30 +288,71 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
         .axis_source => {},
         .axis_stop => {},
         .axis_value120 => {},
-        .button => {},
+        .button => |b| {
+            const e = InputEvent.Event{
+                .mouse_button = .{
+                    .button = b.button,
+                    .modifiers = .{},
+                    .state = if (b.state == .pressed) .pressed else .released,
+                },
+            };
+            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+                Log.err("failed to write input event {s}", .{
+                    @errorName(err),
+                });
+            };
+        },
         .enter => {},
         .frame => {},
         .leave => {},
         .motion => |m| {
-            _ = m;
+            const e = InputEvent.Event{
+                .mouse_move = .{
+                    .position = .{
+                        @intCast(m.surface_x.toInt()),
+                        @intCast(m.surface_y.toInt()),
+                    },
+                },
+            };
+            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+                Log.err("failed to write input event {s}", .{
+                    @errorName(err),
+                });
+            };
         },
     }
 }
 
 fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) void {
     _ = kbd;
-    _ = self;
     switch (event) {
         .enter => {},
         .key => |k| {
-            Log.debug("key: {} is {}", .{
-                k.key,
-                k.state,
-            });
+            const e = InputEvent.Event{
+                .key = .{
+                    .key = k.key,
+                    .modifiers = .{},
+                    .state = if (k.state == .pressed) .pressed else .released,
+                },
+            };
+            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+                Log.err("failed to write input event {s}", .{
+                    @errorName(err),
+                });
+            };
         },
         .keymap => {},
         .leave => {},
         .modifiers => {},
         .repeat_info => {},
+    }
+}
+
+pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
+    while (self.input.queue.readItem()) |e| {
+        listeners: for (listeners) |l| {
+            const result = try l.onInput(e);
+            if (result) break :listeners;
+        }
     }
 }

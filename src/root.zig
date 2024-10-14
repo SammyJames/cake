@@ -11,6 +11,8 @@ pub const Errors = error{
 pub const App = @import("app.zig");
 pub const Window = @import("window.zig");
 pub const Ui = @import("ui.zig");
+pub const InputListener = cake_video.InputListener;
+pub const InputEvent = cake_video.IntputEvent;
 
 /// options for initializing cake!
 pub const Options = struct {
@@ -56,4 +58,8 @@ pub fn deinit() void {
 pub fn tick() !void {
     try cake_video.tick();
     try cake_render.tick();
+}
+
+pub fn registerForInput(listener: InputListener) !void {
+    try cake_video.registerForInput(listener);
 }
