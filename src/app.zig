@@ -43,8 +43,7 @@ pub fn tick(self: *Self) !void {
     try cake.tick();
 }
 
-/// Determine if the application should exit, by default this checks all
-/// windows to determine if they want to close
+/// Determine if the application should exit, by default this checks all windows to determine if they want to close
 pub fn exitRequested(self: *const Self) bool {
     var result = false;
     for (self.windows.items) |w| {
@@ -55,9 +54,9 @@ pub fn exitRequested(self: *const Self) bool {
 }
 
 /// Create a window
-/// @param title the title of the application
-/// @param size the dimensions of the window being created
-/// @return a new window
+/// @param title the title of the application, must be zero terminated
+/// @param size the initial size of the window ie: @Vector(2, u32){ 1024, 768 }
+/// @return ptr to a new window, managed by the app or error
 pub fn createWindow(self: *Self, title: [:0]const u8, size: @Vector(2, u32)) !*Window {
     const window = try self.allocator.create(Window);
     errdefer self.allocator.destroy(window);
@@ -67,12 +66,7 @@ pub fn createWindow(self: *Self, title: [:0]const u8, size: @Vector(2, u32)) !*W
         size,
     });
 
-    window.* = try Window.init(
-        self.allocator,
-        title,
-        size,
-    );
-
+    window.* = try Window.init(self.allocator, title, size);
     try self.windows.append(window);
 
     return window;

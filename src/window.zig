@@ -21,22 +21,15 @@ render: struct {
     swapchain: *cake_render.Swapchain,
 },
 
-on_tick: ?TickInterface,
+on_tick: TickInterface,
 ui_state: Ui,
 
 /// Create a window
 /// @param title the title of the window
 /// @param size the size of the window
 /// @return a new window
-pub fn init(
-    allocator: std.mem.Allocator,
-    title: [:0]const u8,
-    size: @Vector(2, u32),
-) !Self {
-    const video_surface = try cake_video.createSurface(
-        title,
-        size,
-    );
+pub fn init(allocator: std.mem.Allocator, title: [:0]const u8, size: @Vector(2, u32)) !Self {
+    const video_surface = try cake_video.createSurface(title, size);
     errdefer cake_video.destroySurface(video_surface) catch
         @panic("failed to destroy surface");
 
@@ -69,9 +62,7 @@ pub fn init(
     errdefer cake_render.destroySurface(render_surface) catch
         @panic("unable to destroy surface");
 
-    const swapchain = try cake_render.createSwapchain(
-        render_surface,
-    );
+    const swapchain = try cake_render.createSwapchain(render_surface);
     errdefer cake_render.destroySwapchain(swapchain) catch
         @panic("unable to destroy swapchain");
 
@@ -92,7 +83,7 @@ pub fn init(
             .surface = render_surface,
             .swapchain = swapchain,
         },
-        .on_tick = null,
+        .on_tick = std.mem.zeroInit(TickInterface, .{}),
         .ui_state = try Ui.init(allocator, swapchain),
     };
 }
@@ -128,27 +119,23 @@ pub fn closeRequested(self: Self) bool {
 /// Tick the window
 pub fn tick(self: Self) !void {
     self.ui_state.beginFrame();
+    defer self.ui_state.endFrame();
 
-    if (self.on_tick) |*ot| {
-        try ot.onTick(self.ui_state);
-    }
-
-    self.ui_state.endFrame();
+    try self.on_tick.onTick(self.ui_state);
 }
 
 /// Used to abstract ticking
 pub const TickInterface = struct {
-    ptr: *anyopaque,
+    ptr: *allowzero anyopaque,
     vtable: struct {
-        on_tick: *const fn (*anyopaque, Ui) anyerror!void,
+        on_tick: *allowzero const fn (*anyopaque, Ui) anyerror!void,
     },
 
     fn onTick(self: @This(), ui_state: Ui) !void {
-        try @call(
-            .auto,
-            self.vtable.on_tick,
-            .{ self.ptr, ui_state },
-        );
+        try @call(.auto, self.vtable.on_tick, .{
+            self.ptr,
+            ui_state,
+        });
     }
 };
 

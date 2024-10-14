@@ -3,6 +3,8 @@
 const std = @import("std");
 const cake = @import("cake");
 
+const assert = std.debug.assert;
+
 const Log = std.log.scoped(.cake);
 
 pub fn main() !void {
@@ -10,14 +12,14 @@ pub fn main() !void {
     defer Log.info("exiting...", .{});
 
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
-    defer std.debug.assert(gpa.deinit() == .ok);
+    defer assert(gpa.deinit() == .ok);
 
     const alloc = gpa.allocator();
 
     var app = try cake.App.init(alloc);
     defer app.deinit();
 
-    var w1 = try app.createWindow("Bakery", .{ 1920, 1080 });
+    const w1 = try app.createWindow("Bakery", .{ 1920, 1080 });
     var main_window = MainWindow.init(w1);
     defer main_window.deinit(&app);
 
