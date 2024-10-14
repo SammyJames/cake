@@ -39,6 +39,13 @@ pub const Pass = switch (build_options.RenderBackend) {
     ),
 };
 
+pub const Pipeline = switch (build_options.RenderBackend) {
+    .vulkan => @import("vulkan/pipeline.zig"),
+    else => @compileError(
+        "unsupported render platform: " ++ @tagName(build_options.RenderBackend),
+    ),
+};
+
 pub const VideoInterface = interface.Video;
 pub const SurfaceInterface = interface.Surface;
 
@@ -196,8 +203,12 @@ pub fn createPass(swapchain: *Swapchain) !Pass {
 }
 
 ///
-pub fn destroyPass(render_pass: *Pass) void {
-    render_pass.deinit();
+pub fn createPipeline(pass: Pass) !Pipeline {
+    if (context) |*ctx| {
+        return Pipeline.init(ctx, pass);
+    }
+
+    return Errors.NoContext;
 }
 
 ///
