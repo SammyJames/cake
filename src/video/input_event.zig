@@ -121,6 +121,18 @@ pub const Key = enum {
     right_super,
     right_function,
     right_control,
+
+    insert,
+    home,
+    page_up,
+    delete,
+    end,
+    page_down,
+
+    left,
+    right,
+    up,
+    down,
 };
 
 pub const MouseButton = enum {

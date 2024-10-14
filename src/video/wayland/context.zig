@@ -353,6 +353,16 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
     }
 }
 
+pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
+    while (self.input.queue.readItem()) |e| {
+        var event = e;
+        for (listeners) |l| {
+            const result = try l.onInput(event);
+            event.handled = result;
+        }
+    }
+}
+
 fn translateMouseButton(code: u32) ?InputEvent.MouseButton {
     return switch (code) {
         272 => .left,
@@ -368,7 +378,7 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
     Log.debug("key code {}", .{code});
 
     return switch (code) {
-        1 => .escape,
+        41 => .@"`",
         2 => .@"1",
         3 => .@"2",
         4 => .@"3",
@@ -425,7 +435,15 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         53 => .@"/",
         54 => .right_shift,
 
+        29 => .left_control,
+        125 => .left_super,
+        56 => .left_alt,
         57 => .space,
+        100 => .right_alt,
+        126 => .right_super,
+        97 => .right_control,
+
+        1 => .escape,
         59 => .f1,
         60 => .f2,
         61 => .f3,
@@ -438,16 +456,19 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         68 => .f10,
         87 => .f11,
         88 => .f12,
+
+        110 => .insert,
+        102 => .home,
+        104 => .page_up,
+        111 => .delete,
+        107 => .end,
+        109 => .page_down,
+
+        105 => .left,
+        103 => .up,
+        106 => .right,
+        108 => .down,
+
         else => null,
     };
-}
-
-pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
-    while (self.input.queue.readItem()) |e| {
-        var event = e;
-        for (listeners) |l| {
-            const result = try l.onInput(event);
-            event.handled = result;
-        }
-    }
 }
