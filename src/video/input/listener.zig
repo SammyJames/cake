@@ -2,15 +2,17 @@
 
 const Event = @import("event.zig");
 
-const OnInputFunction = *const fn (?*anyopaque, Event) anyerror!bool;
+/// signature for input event handlers
+/// implementors should return true if they have "handled" the event
+const TOnInput = *const fn (?*anyopaque, Event) anyerror!bool;
 
 /// an object that listens for input
 ptr: ?*anyopaque,
 vtable: struct {
-    on_input: OnInputFunction,
+    on_input: TOnInput,
 },
 
-pub fn init(ptr: ?*anyopaque, callback: OnInputFunction) @This() {
+pub fn init(ptr: ?*anyopaque, callback: TOnInput) @This() {
     return .{
         .ptr = ptr,
         .vtable = .{
