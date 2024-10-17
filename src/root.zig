@@ -7,8 +7,7 @@ const cake_render = @import("cake.render");
 pub const App = @import("app.zig");
 pub const Window = @import("window.zig");
 pub const Ui = @import("ui.zig");
-pub const InputListener = cake_video.InputListener;
-pub const InputEvent = cake_video.IntputEvent;
+pub const Input = cake_video.Input;
 
 pub const Errors = error{
     InitFailed,
@@ -60,6 +59,6 @@ pub fn tick() !void {
     try cake_render.tick();
 }
 
-pub fn registerForInput(listener: InputListener) !void {
-    try cake_video.registerForInput(listener);
+pub fn registerForInput(priority: Input.Priority, listener: Input.Listener) !void {
+    try cake_video.registerForInput(priority, listener);
 }

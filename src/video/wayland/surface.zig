@@ -43,23 +43,9 @@ pub fn init(self: *Self, ctx: *const Context, title: [:0]const u8, size: @Vector
     self.xdg_surface = try ctx.xdg_wm_base.getXdgSurface(self.surface);
     self.top_level = try self.xdg_surface.getToplevel();
 
-    self.xdg_surface.setWindowGeometry(
-        0,
-        0,
-        @intCast(size[0]),
-        @intCast(size[1]),
-    );
-
-    self.xdg_surface.setListener(
-        *Self,
-        Self.xdgSurfaceListener,
-        self,
-    );
-    self.top_level.setListener(
-        *Self,
-        Self.topLevelListener,
-        self,
-    );
+    self.xdg_surface.setWindowGeometry(0, 0, @intCast(size[0]), @intCast(size[1]));
+    self.xdg_surface.setListener(*Self, Self.xdgSurfaceListener, self);
+    self.top_level.setListener(*Self, Self.topLevelListener, self);
 
     self.setTitle(title);
     self.setAppId(ctx.app_id);
@@ -99,12 +85,7 @@ pub fn setTitle(self: *Self, title: [:0]const u8) void {
 /// Set the size of the surface
 /// @param size
 pub fn setSize(self: *Self, size: @Vector(2, u32)) void {
-    self.xdg_surface.setWindowGeometry(
-        0,
-        0,
-        @intCast(size[0]),
-        @intCast(size[1]),
-    );
+    self.xdg_surface.setWindowGeometry(0, 0, @intCast(size[0]), @intCast(size[1]));
 }
 
 /// Set the app id
@@ -117,12 +98,7 @@ fn updateOpaqueArea(self: *Self) !void {
     var region = try self.ctx.compositor.createRegion();
     defer region.destroy();
 
-    region.add(
-        0,
-        0,
-        @intCast(self.size[0]),
-        @intCast(self.size[1]),
-    );
+    region.add(0, 0, @intCast(self.size[0]), @intCast(self.size[1]));
     self.surface.setOpaqueRegion(region);
 }
 

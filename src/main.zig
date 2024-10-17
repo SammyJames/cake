@@ -19,12 +19,8 @@ pub fn main() !void {
     var app = try cake.App.init(alloc);
     defer app.deinit();
 
-    app.registerForInput(.{
-        .ptr = std.mem.zeroes(*allowzero anyopaque),
-        .vtable = .{
-            .on_input = handleInput,
-        },
-    });
+    const input_listener = cake.Input.Listener.init(null, handleInput);
+    try cake.registerForInput(.default, input_listener);
 
     const w1 = try app.createWindow("Bakery", .{ 1920, 1080 });
     var main_window = MainWindow.init(w1);
@@ -45,16 +41,16 @@ pub fn main() !void {
     }
 }
 
-fn handleInput(_: *allowzero anyopaque, event: cake.InputEvent) !bool {
+fn handleInput(_: ?*anyopaque, event: cake.Input.Event) !bool {
     switch (event.event) {
         .key => |k| {
-            Log.debug("key event {}", .{k,});
+            _ = k;
         },
         .mouse_button => |mb| {
-            Log.debug("mouse btn event {}", .{mb,});
+            _ = mb;
         },
         .mouse_move => |mm| {
-            Log.debug("mouse move event {}", .{mm,});
+            _ = mm;
         },
         else => {},
     }

@@ -4,7 +4,7 @@ const std = @import("std");
 const build_options = @import("build_options");
 const interface = @import("interface.zig");
 
-pub const IntputEvent = @import("input_event.zig");
+pub const Input = @import("input/root.zig");
 
 pub const Errors = error{
     VideoInitializationFailed,
@@ -25,11 +25,10 @@ pub const Surface = switch (build_options.VideoBackend) {
 };
 
 pub const SwapchainInterface = interface.Swapchain;
-pub const InputListener = interface.InputListener;
 
 var context: ?Context = null;
 var surfaces: ?std.ArrayList(*Surface) = null;
-var input_listeners: ?std.ArrayList(InputListener) = null;
+var input_listeners: ?std.ArrayList(Input.Listener) = null;
 
 pub const Options = struct {
     allocator: std.mem.Allocator,
@@ -40,7 +39,7 @@ pub const Options = struct {
 /// @param options options to use for this module
 pub fn init(options: Options) !void {
     surfaces = std.ArrayList(*Surface).init(options.allocator);
-    input_listeners = std.ArrayList(InputListener).init(options.allocator);
+    input_listeners = std.ArrayList(Input.Listener).init(options.allocator);
 
     context = undefined;
     if (context) |*ctx| {
@@ -59,7 +58,8 @@ pub fn deinit() void {
     if (context) |*ctx| ctx.deinit();
 }
 
-pub fn registerForInput(listener: InputListener) !void {
+pub fn registerForInput(priority: Input.Priority, listener: Input.Listener) !void {
+    _ = priority;
     if (input_listeners) |*il| {
         try il.append(listener);
     }

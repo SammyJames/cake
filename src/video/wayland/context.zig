@@ -2,8 +2,7 @@
 const std = @import("std");
 const wayland = @import("wayland");
 const Surface = @import("surface.zig");
-const InputEvent = @import("../input_event.zig");
-const InputListener = @import("../interface.zig").InputListener;
+const Input = @import("../input/root.zig");
 
 const wl = wayland.client.wl;
 const xdg = wayland.client.xdg;
@@ -30,8 +29,12 @@ outputs: std.ArrayList(*wl.Output),
 input: struct {
     pointer: *wl.Pointer,
     keyboard: *wl.Keyboard,
-    modifiers: InputEvent.Modifiers,
-    queue: std.fifo.LinearFifo(InputEvent, .Dynamic),
+    modifiers: Input.Event.Modifiers,
+    queue: std.fifo.LinearFifo(Input.Event, .Dynamic),
+
+    ctx: Input.XKB.Context,
+    state: Input.XKB.State,
+    keymap: Input.XKB.Keymap,
 },
 
 state: enum {
@@ -40,6 +43,19 @@ state: enum {
     capabilities_found,
 } = .invalid,
 
+var xkb: Input.XKB = undefined;
+var INIT_XKB = std.once(Private.initXkb);
+
+const Private = struct {
+    fn initXkb() void {
+        xkb = Input.XKB.load() catch |err| {
+            std.debug.panic("failed to load xkb {s}", .{
+                @errorName(err),
+            });
+        };
+    }
+};
+
 /// Initialize the wayland video context
 /// @param allocator the allocator interface to use
 /// @param app_id the application identifier
@@ -47,8 +63,11 @@ pub fn init(self: *Self, allocator: std.mem.Allocator, app_id: [:0]const u8) !vo
     self.allocator = allocator;
     self.app_id = app_id;
 
-    self.input.modifiers = std.mem.zeroInit(InputEvent.Modifiers, .{});
-    self.input.queue = std.fifo.LinearFifo(InputEvent, .Dynamic).init(allocator);
+    INIT_XKB.call();
+
+    self.input.modifiers = std.mem.zeroInit(Input.Event.Modifiers, .{});
+    self.input.queue = std.fifo.LinearFifo(Input.Event, .Dynamic).init(allocator);
+    self.input.ctx = try xkb.newContext();
 
     self.display = try wl.Display.connect(null);
     self.registry = try self.display.getRegistry();
@@ -291,14 +310,14 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
         .axis_stop => {},
         .axis_value120 => {},
         .button => |b| {
-            const e = InputEvent.Event{
+            const e = Input.Event.Union{
                 .mouse_button = .{
                     .button = translateMouseButton(b.button) orelse .none,
                     .modifiers = self.input.modifiers,
                     .state = if (b.state == .pressed) .pressed else .released,
                 },
             };
-            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+            self.input.queue.writeItem(Input.Event.init(e)) catch |err| {
                 Log.err("failed to write input event {s}", .{
                     @errorName(err),
                 });
@@ -308,7 +327,7 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
         .frame => {},
         .leave => {},
         .motion => |m| {
-            const e = InputEvent.Event{
+            const e = Input.Event.Union{
                 .mouse_move = .{
                     .modifiers = self.input.modifiers,
                     .position = .{
@@ -317,7 +336,7 @@ fn pointerListener(ptr: *wl.Pointer, event: wl.Pointer.Event, self: *Self) void 
                     },
                 },
             };
-            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+            self.input.queue.writeItem(Input.Event.init(e)) catch |err| {
                 Log.err("failed to write input event {s}", .{
                     @errorName(err),
                 });
@@ -331,29 +350,55 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
     switch (event) {
         .enter => {},
         .key => |k| {
-            const e = InputEvent.Event{
+            const e = Input.Event.Union{
                 .key = .{
                     .key = translateKeyCode(k.key) orelse .none,
                     .modifiers = self.input.modifiers,
                     .state = if (k.state == .pressed) .pressed else .released,
                 },
             };
-            self.input.queue.writeItem(InputEvent.init(e)) catch |err| {
+            self.input.queue.writeItem(Input.Event.init(e)) catch |err| {
                 Log.err("failed to write input event {s}", .{
                     @errorName(err),
                 });
             };
         },
-        .keymap => {},
+        .keymap => |km| {
+            switch (km.format) {
+                .xkb_v1 => {
+                    const map_shm = std.posix.mmap(null, km.size, std.posix.PROT.READ, .{ .TYPE = .PRIVATE }, km.fd, 0) catch |err| {
+                        std.debug.panic("failed to map keymap {s}", .{
+                            @errorName(err),
+                        });
+                    };
+                    defer std.posix.munmap(map_shm);
+
+                    self.input.keymap = self.input.ctx.newKeymap(@alignCast(map_shm)) catch |err| {
+                        std.debug.panic("failed to create xkb keymap {s}", .{
+                            @errorName(err),
+                        });
+                    };
+
+                    const state = self.input.keymap.newState() catch |err| {
+                        std.debug.panic("failed to create keymap state {s}", .{
+                            @errorName(err),
+                        });
+                    };
+                    defer state.unref();
+                },
+                .no_keymap => {},
+                else => {},
+            }
+        },
         .leave => {},
         .modifiers => |m| {
-            _ = m; // autofix
+            Log.debug("{}", .{m});
         },
         .repeat_info => {},
     }
 }
 
-pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
+pub fn dispatchInput(self: *Self, listeners: []Input.Listener) !void {
     while (self.input.queue.readItem()) |e| {
         var event = e;
         for (listeners) |l| {
@@ -363,7 +408,7 @@ pub fn dispatchInput(self: *Self, listeners: []InputListener) !void {
     }
 }
 
-fn translateMouseButton(code: u32) ?InputEvent.MouseButton {
+fn translateMouseButton(code: u32) ?Input.MouseButton {
     return switch (code) {
         272 => .left,
         273 => .right,
@@ -374,9 +419,7 @@ fn translateMouseButton(code: u32) ?InputEvent.MouseButton {
     };
 }
 
-fn translateKeyCode(code: u32) ?InputEvent.Key {
-    Log.debug("key code {}", .{code});
-
+fn translateKeyCode(code: u32) ?Input.Key {
     return switch (code) {
         41 => .@"`",
         2 => .@"1",
@@ -408,7 +451,7 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         27 => .@"]",
         43 => .@"\\",
 
-        58 => .caps_lock,
+        58 => .capsLock,
         30 => .a,
         31 => .s,
         32 => .d,
@@ -422,7 +465,7 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         40 => .@"'",
         28 => .@"return",
 
-        42 => .left_shift,
+        42 => .leftShift,
         44 => .z,
         45 => .x,
         46 => .c,
@@ -433,15 +476,15 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
         51 => .@",",
         52 => .@".",
         53 => .@"/",
-        54 => .right_shift,
+        54 => .rightShift,
 
-        29 => .left_control,
-        125 => .left_super,
-        56 => .left_alt,
+        29 => .leftControl,
+        125 => .leftSuper,
+        56 => .leftAlt,
         57 => .space,
-        100 => .right_alt,
-        126 => .right_super,
-        97 => .right_control,
+        100 => .rightAlt,
+        126 => .rightSuper,
+        97 => .rightControl,
 
         1 => .escape,
         59 => .f1,
@@ -459,10 +502,10 @@ fn translateKeyCode(code: u32) ?InputEvent.Key {
 
         110 => .insert,
         102 => .home,
-        104 => .page_up,
+        104 => .pageUp,
         111 => .delete,
         107 => .end,
-        109 => .page_down,
+        109 => .pageDown,
 
         105 => .left,
         103 => .up,

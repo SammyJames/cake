@@ -43,15 +43,6 @@ pub fn tick(self: *Self) !void {
     try cake.tick();
 }
 
-///
-pub fn registerForInput(_: Self, listener: cake.InputListener) void {
-    cake.registerForInput(listener) catch |err| {
-        Log.err("failed to register for input {s}", .{
-            @errorName(err),
-        });
-    };
-}
-
 /// Determine if the application should exit, by default this checks all windows to determine if they want to close
 pub fn exitRequested(self: *const Self) bool {
     var result = false;
