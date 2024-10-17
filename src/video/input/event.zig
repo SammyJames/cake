@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 const constants = @import("constants.zig");
 

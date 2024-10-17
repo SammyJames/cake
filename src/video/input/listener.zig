@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 const Event = @import("event.zig");
 

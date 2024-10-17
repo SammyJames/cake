@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 const std = @import("std");
 
@@ -68,6 +68,7 @@ pub fn newContext(self: Self) error{XkbContextNewFailed}!Context {
     return result;
 }
 
+///
 pub const Context = struct {
     xkb: *const Self,
     inner: ?*c.xkb_context,
@@ -103,6 +104,7 @@ pub const Context = struct {
     }
 };
 
+///
 pub const Keymap = struct {
     xkb: *const Self,
     inner: ?*c.xkb_keymap,
@@ -135,6 +137,7 @@ pub const Keymap = struct {
     }
 };
 
+///
 pub const State = struct {
     xkb: *const Self,
     inner: ?*c.xkb_state,

@@ -1,4 +1,4 @@
-//! Cake.Video
+//! Cake.Video - the video subsystem
 
 /// input priority for input listeners
 pub const Priority = enum(u8) {
