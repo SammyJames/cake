@@ -64,7 +64,7 @@ pub const Modifiers = enum {
         };
     }
 
-    pub fn fromString(str: []const u8) Self {
+    pub fn fromString(str: [*c]const u8) Self {
         return STRING_TO_ENUM.get(str) orelse .none;
     }
 };
@@ -96,10 +96,7 @@ pub fn newContext(self: *Self) error{XkbContextNewFailed}!Context {
         return error.XkbContextNewFailed;
     }
 
-    var result: Context = .{
-        .xkb = self,
-        .inner = ctx,
-    };
+    var result: Context = .{ .xkb = self, .inner = ctx };
     result.ref();
     return result;
 }
@@ -111,47 +108,35 @@ pub const Context = struct {
 
     pub fn ref(self: *@This()) void {
         if (self.inner != null) {
-            _ = @call(
-                .auto,
-                self.xkb.xkb_context_ref,
-                .{self.inner},
-            );
+            _ = @call(.auto, self.xkb.xkb_context_ref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn unref(self: *@This()) void {
         if (self.inner != null) {
-            @call(
-                .auto,
-                self.xkb.xkb_context_unref,
-                .{self.inner},
-            );
+            @call(.auto, self.xkb.xkb_context_unref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn newComposeTable(self: *@This(), locale: [*c]const u8) error{ XkbComposeTableNewFromLocaleFailed, XkbComposeStateNewFailed }!ComposeTable {
-        const table: ?*c.xkb_compose_table = @call(
-            .auto,
-            self.xkb.xkb_compose_table_new_from_locale,
-            .{
-                self.inner,
-                locale,
-                c.XKB_COMPOSE_COMPILE_NO_FLAGS,
-            },
-        );
+        const table: ?*c.xkb_compose_table = @call(.auto, self.xkb.xkb_compose_table_new_from_locale, .{
+            self.inner,
+            locale,
+            c.XKB_COMPOSE_COMPILE_NO_FLAGS,
+        });
 
         if (table == null) {
             return error.XkbComposeTableNewFromLocaleFailed;
         }
 
-        const state: ?*c.xkb_compose_state = @call(
-            .auto,
-            self.xkb.xkb_compose_state_new,
-            .{
-                table,
-                c.XKB_COMPOSE_STATE_NO_FLAGS,
-            },
-        );
+        const state: ?*c.xkb_compose_state = @call(.auto, self.xkb.xkb_compose_state_new, .{
+            table,
+            c.XKB_COMPOSE_STATE_NO_FLAGS,
+        });
 
         if (state == null) {
             return error.XkbComposeStateNewFailed;
@@ -168,16 +153,12 @@ pub const Context = struct {
         Log.info("creating a new keymap {?p}", .{
             self.inner,
         });
-        const keymap: ?*c.xkb_keymap = @call(
-            .auto,
-            self.xkb.xkb_keymap_new_from_string,
-            .{
-                self.inner,
-                string,
-                c.XKB_KEYMAP_FORMAT_TEXT_V1,
-                c.XKB_KEYMAP_COMPILE_NO_FLAGS,
-            },
-        );
+        const keymap: ?*c.xkb_keymap = @call(.auto, self.xkb.xkb_keymap_new_from_string, .{
+            self.inner,
+            string,
+            c.XKB_KEYMAP_FORMAT_TEXT_V1,
+            c.XKB_KEYMAP_COMPILE_NO_FLAGS,
+        });
 
         if (keymap == null) {
             return error.XkbKeymapNewFromStringFailed;
@@ -188,10 +169,7 @@ pub const Context = struct {
             .{keymap},
         );
 
-        return .{
-            .xkb = self.xkb,
-            .inner = keymap,
-        };
+        return .{ .xkb = self.xkb, .inner = keymap };
     }
 };
 
@@ -233,10 +211,7 @@ pub const Keymap = struct {
             return error.XkbStateNewFailed;
         }
 
-        return .{
-            .xkb = self.xkb,
-            .inner = state,
-        };
+        return .{ .xkb = self.xkb, .inner = state };
     }
 
     pub fn getModifierKey(self: *@This(), mod: Modifiers) u32 {
@@ -270,38 +245,30 @@ pub const State = struct {
 
     pub fn ref(self: *@This()) void {
         if (self.inner != null) {
-            @call(
-                .auto,
-                self.xkb.xkb_state_ref,
-                .{self.inner},
-            );
+            @call(.auto, self.xkb.xkb_state_ref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn unref(self: *@This()) void {
         if (self.inner != null) {
-            @call(
-                .auto,
-                self.xkb.xkb_state_unref,
-                .{self.inner},
-            );
+            @call(.auto, self.xkb.xkb_state_unref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn updateMask(self: *@This(), mods_depressed: u32, mods_latched: u32, mods_locked: u32, group: u32) void {
-        _ = @call(
-            .auto,
-            self.xkb.xkb_state_update_mask,
-            .{
-                self.inner,
-                mods_depressed,
-                mods_latched,
-                mods_locked,
-                0,
-                0,
-                group,
-            },
-        );
+        _ = @call(.auto, self.xkb.xkb_state_update_mask, .{
+            self.inner,
+            mods_depressed,
+            mods_latched,
+            mods_locked,
+            0,
+            0,
+            group,
+        });
     }
 
     pub fn isIndexActive(self: *@This(), index: u32) bool {
