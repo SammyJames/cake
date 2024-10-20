@@ -34,7 +34,17 @@ input: struct {
 
     ctx: Input.XKB.Context,
     state: Input.XKB.State,
+    comp_state: Input.XKB.ComposeTable,
     keymap: Input.XKB.Keymap,
+
+    mod_indices: struct {
+        ctrl: u32,
+        alt: u32,
+        shift: u32,
+        super: u32,
+        caps: u32,
+        num: u32,
+    },
 },
 
 state: enum {
@@ -373,18 +383,33 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
                     };
                     defer std.posix.munmap(map_shm);
 
+                    const locale = std.posix.getenv("LC_ALL") orelse std.posix.getenv("LC_CTYPE") orelse std.posix.getenv("LANG") orelse "C";
+                    self.input.comp_state = self.input.ctx.newComposeTable(locale) catch |err| {
+                        std.debug.panic("failed to create compose table {s}", .{
+                            @errorName(err),
+                        });
+                    };
+
                     self.input.keymap = self.input.ctx.newKeymap(@alignCast(map_shm)) catch |err| {
                         std.debug.panic("failed to create xkb keymap {s}", .{
                             @errorName(err),
                         });
                     };
 
-                    const state = self.input.keymap.newState() catch |err| {
+                    self.input.state = self.input.keymap.newState() catch |err| {
                         std.debug.panic("failed to create keymap state {s}", .{
                             @errorName(err),
                         });
                     };
-                    defer state.unref();
+
+                    self.input.mod_indices = .{
+                        .ctrl = self.input.keymap.getModifierKey(.control),
+                        .alt = self.input.keymap.getModifierKey(.alt),
+                        .shift = self.input.keymap.getModifierKey(.shift),
+                        .super = self.input.keymap.getModifierKey(.super),
+                        .caps = self.input.keymap.getModifierKey(.caps_lock),
+                        .num = self.input.keymap.getModifierKey(.num_lock),
+                    };
                 },
                 .no_keymap => {},
                 else => {},
@@ -392,7 +417,18 @@ fn keyboardListener(kbd: *wl.Keyboard, event: wl.Keyboard.Event, self: *Self) vo
         },
         .leave => {},
         .modifiers => |m| {
-            Log.debug("{}", .{m});
+            self.input.state.updateMask(
+                m.mods_depressed,
+                m.mods_latched,
+                m.mods_locked,
+                m.group,
+            );
+
+            self.input.modifiers = .{
+                .shift = self.input.state.isIndexActive(self.input.mod_indices.shift),
+                .ctrl = self.input.state.isIndexActive(self.input.mod_indices.ctrl),
+                .alt = self.input.state.isIndexActive(self.input.mod_indices.alt),
+            };
         },
         .repeat_info => {},
     }
