@@ -44,7 +44,20 @@ pub fn main() !void {
 fn handleInput(_: ?*anyopaque, event: cake.Input.Event) !bool {
     switch (event.event) {
         .key => |k| {
-            _ = k;
+            switch (k.key) {
+                .f4 => {
+                    if (k.modifiers.alt and k.state == .pressed) {
+                        Log.info("alt+f4", .{});
+                        std.process.exit(0);
+                    }
+                },
+                .@"return" => {
+                    if (k.modifiers.alt and k.state == .pressed) {
+                        Log.info("toggle full screen", .{});
+                    }
+                },
+                else => {},
+            }
         },
         .mouse_button => |mb| {
             _ = mb;

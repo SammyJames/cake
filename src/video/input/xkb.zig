@@ -43,7 +43,7 @@ pub const Modifiers = enum {
     caps_lock,
     num_lock,
 
-    const STRING_TO_ENUM = std.StaticStringMap(Self).initComptime(.{
+    const STRING_TO_ENUM = std.StaticStringMap(@This()).initComptime(.{
         .{ "Control", .control },
         .{ "Mod1", .alt },
         .{ "Shift", .shift },
@@ -64,10 +64,17 @@ pub const Modifiers = enum {
         };
     }
 
-    pub fn fromString(str: [*c]const u8) Self {
+    pub fn fromString(comptime str: []const u8) @This() {
         return STRING_TO_ENUM.get(str) orelse .none;
     }
 };
+
+comptime {
+    const control = Modifiers.fromString("Control");
+    if (control != Modifiers.control) {
+        @compileError("fromString failed");
+    }
+}
 
 pub fn load() !Self {
     var result: Self = undefined;
@@ -164,10 +171,9 @@ pub const Context = struct {
             return error.XkbKeymapNewFromStringFailed;
         }
 
-        Log.debug(
-            "new keymap {?p}",
-            .{keymap},
-        );
+        Log.debug("new keymap {?p}", .{
+            keymap,
+        });
 
         return .{ .xkb = self.xkb, .inner = keymap };
     }
@@ -180,32 +186,24 @@ pub const Keymap = struct {
 
     pub fn ref(self: *@This()) void {
         if (self.inner != null) {
-            @call(
-                .auto,
-                self.xkb.xkb_keymap_ref,
-                .{self.inner},
-            );
+            @call(.auto, self.xkb.xkb_keymap_ref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn unref(self: *@This()) void {
         if (self.inner != null) {
-            @call(
-                .auto,
-                self.xkb.xkb_keymap_unref,
-                .{self.inner},
-            );
+            @call(.auto, self.xkb.xkb_keymap_unref, .{
+                self.inner,
+            });
         }
     }
 
     pub fn newState(self: *@This()) error{XkbStateNewFailed}!State {
-        const state: ?*c.xkb_state = @call(
-            .auto,
-            self.xkb.xkb_state_new,
-            .{
-                self.inner,
-            },
-        );
+        const state: ?*c.xkb_state = @call(.auto, self.xkb.xkb_state_new, .{
+            self.inner,
+        });
 
         if (state == null) {
             return error.XkbStateNewFailed;
